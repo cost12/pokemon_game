@@ -1,1 +1,6 @@
 instructions.txt
+*.ps1
+.venv
+.env
+docs/_*
+__pycache__
