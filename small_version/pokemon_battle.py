@@ -68,6 +68,14 @@ class Deck:
                 card_names[card.pokemon_name()] = 1
         return True
     
+    def get_cards(self) -> list[PokemonCard]:
+        """Get a list of the cards used in the deck
+
+        :return: The cards in the deck
+        :rtype: list[PokemonCard]
+        """
+        return list(self.cards)
+    
     def add_card(self, card:PokemonCard):
         """Add a card to the deck
 

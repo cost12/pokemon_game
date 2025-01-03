@@ -1,5 +1,6 @@
 from pokemon_card import PokemonCard
 from pokemon_battle import Deck
+import utils
 
 class User:
     """Represents a user that collects and battles with cards
@@ -29,13 +30,17 @@ class User:
         """
         map(self.add_card, cards)
 
-    def add_deck(self, deck:list[Deck]) -> bool:
+    def add_deck(self, deck:Deck) -> bool:
         """Checks whether a deck can be created with the user's cards. Returns true and adds the deck if it can be made, returns false otherwise
 
         :param deck: A deck of cards to add
-        :type deck: list[Deck]
+        :type deck: Deck
         :return: True if the deck is added, false otherwise
         :rtype: bool
         """
-        # TODO: start here
-        pass
+        counts = utils.list_to_counts(deck.get_cards())
+        for card in counts.keys():
+            if counts[card] > self.cards[card]:
+                return False
+        self.decks[deck.name] = deck
+        return True

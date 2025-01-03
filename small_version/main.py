@@ -1,6 +1,6 @@
 from user import User
 from pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
-from pokemon_battle import Deck
+from pokemon_battle import Deck, Battle
 from pokemon_types import EnergyType
 
 def main():
@@ -20,7 +20,12 @@ def main():
     # create users and give them cards/decks to battle with
     user1 = User('p1', cards=cards)
     user2 = User('p2', cards=cards)
+    ready1 = user1.add_deck(deck1)
+    ready2 = user2.add_deck(deck2)
+    assert ready1 and ready2
 
+    # start the battle
+    battle = Battle(deck1, deck2)
     
 
 if __name__ == "__main__":
