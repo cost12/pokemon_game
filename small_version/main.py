@@ -2,6 +2,7 @@ from user import User
 from pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
 from pokemon_battle import Deck, Battle
 from pokemon_types import EnergyType
+from pokemon_control import battle_control
 
 def main():
     # generate pokemon/cards/data
@@ -26,7 +27,7 @@ def main():
 
     # start the battle
     battle = Battle(deck1, deck2)
-    
+    battle_control(battle)
 
 if __name__ == "__main__":
     main()

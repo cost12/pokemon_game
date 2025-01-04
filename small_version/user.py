@@ -1,5 +1,6 @@
 from pokemon_card import PokemonCard
 from pokemon_battle import Deck
+from pokemon_control import BattleController
 import utils
 
 class User:
@@ -10,6 +11,7 @@ class User:
         self.username = username
         self.cards = dict[PokemonCard,int]() if initial_cards is None else initial_cards
         self.decks = dict[str,Deck]()
+        self.controller = BattleController()
 
     def add_card(self, card:PokemonCard) -> None:
         """Adds a card to the user's collection
