@@ -39,7 +39,7 @@ class ActivePokemon:
         :type card: PokemonCard
         :raises CantEvolveException: When the active pokemon does not evolve into the card
         """
-        if card.evolves_from() == self.active_card().pokemon:
+        if self.can_evolve and card.evolves_from() == self.active_card().pokemon:
             self.can_evolve = False
             self.condition = Condition.NONE
             self.pokemon_cards.insert(0, card)
@@ -50,6 +50,9 @@ class ActivePokemon:
         self.can_evolve = True
 
     def between_turns(self):
+        pass
+
+    def retreat(self) -> bool:
         pass
 
 class Deck:
@@ -200,16 +203,34 @@ class DeckSetup:
         self.hand.append(self.deck[0])
         self.deck = self.deck[1:]
 
-    def play_card(self):
-        pass
+    def play_card_from_hand(self, hand_index:int):
+        """Updates the deck to represent a card from the hand being used
 
-    def retreat(self):
+        :param hand_index: The index in the hand of the card used
+        :type hand_index: int
+        """
+        self.discard.append(self.hand[hand_index])
+        self.hand.pop(hand_index)
+
+    def evolve(self, hand_index:int, active_index:int) -> None:
+        """Updates the deck to represent evolving a card from the hand onto an active pokemomn
+
+        :param hand_index: The index of the card in the hand
+        :type hand_index: int
+        :param active_index: The index of the card in the active area
+        :type active_index: int
+        :raises CantEvolveException: When the pokemon can't evolve
+        """
+        self.active[active_index].evolve(self.hand[hand_index])
+        self.hand.pop(hand_index)
+
+    def retreat(self, active_index:int):
         pass
 
     def shuffle_hand_into_deck(self):
         pass
 
-    def discard_card(self, card):
+    def discard_from_active(self, card):
         pass
 
 class Battle:
