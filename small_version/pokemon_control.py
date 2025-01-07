@@ -28,3 +28,6 @@ class CommandLineBattleController(BattleController):
 
     def __init__(self):
         super().__init__()
+
+    def setup_cards(self):
+        return super().setup_cards()

@@ -3,6 +3,7 @@ from pokemon_types import EnergyType, Condition
 from pokemon_control import BattleController
 
 import random
+from dataclasses import dataclass
 
 class CantEvolveException(Exception):
     pass
@@ -19,7 +20,7 @@ class ActivePokemon:
         :type card: PokemonCard
         """
         self.pokemon_cards   = [card]
-        self.can_evolve      = False
+        self.can_evolve_this_turn = False
         self.damage_counders = 0
         self.condition       = Condition.NONE
         self.energies        = dict[EnergyType,int]()
@@ -39,21 +40,84 @@ class ActivePokemon:
         :type card: PokemonCard
         :raises CantEvolveException: When the active pokemon does not evolve into the card
         """
-        if self.can_evolve and card.evolves_from() == self.active_card().pokemon:
-            self.can_evolve = False
+        if self.can_evolve():
+            self.can_evolve_this_turn = False
             self.condition = Condition.NONE
             self.pokemon_cards.insert(0, card)
         else:
             raise CantEvolveException
+        
+    def can_evolve(self, card:PokemonCard) -> bool:
+        """Checks whether the active card can evolve into the given card
+
+        :param card: The card to evolve into
+        :type card: PokemonCard
+        :return: True if the evolution is possible
+        :rtype: bool
+        """
+        return self.can_evolve_this_turn and card.evolves_from() == self.active_card().pokemon
 
     def end_turn(self):
-        self.can_evolve = True
+        self.can_evolve_this_turn = True
 
     def between_turns(self):
         pass
 
-    def retreat(self) -> bool:
-        pass
+    def attach_energy(self, energy:EnergyType) -> None:
+        """Adds an energy to the card
+
+        :param energy: The type of energy to attach
+        :type energy: EnergyType
+        """
+        if energy in self.energies:
+            self.energies[energy] += 1
+        else:
+            self.energies[energy] = 1
+
+    def retreat(self, energies:dict[EnergyType,int]) -> bool:
+        """Discards the required energies and returns true if it can retreat, otherwise returns false
+
+        :param energies: The energies to discard
+        :type energies: dict[EnergyType,int]
+        :return: True if the card can retreat, false otherwise
+        :rtype: bool
+        """
+        if self.can_retreat(energies):
+            for energy in energies:
+                self.energies[energy] -= energies[energy]
+            return True
+        return False
+
+    def can_retreat(self, energies:dict[EnergyType,int]) -> bool:
+        """Determines weather the active pokemon can retreat for the given cost. Checks conditions, retreat cost, and energy types
+
+        :param energies: The energies to discard in order to retreat, must have the same energies attached to the card
+        :type energies: dict[EnergyType,int]
+        :return: True if the card can retreat, false otherwise
+        :rtype: bool
+        """
+        total = 0
+        for energy in energies:
+            if energy not in self.energies or energies[energy] > self.energies[energy]:
+                return False
+            total += energies[energy]
+        return total == self.active_card().retreat_cost
+
+    def get_energies(self) -> dict[EnergyType,int]:
+        """Return the energies attached to the pokemon
+
+        :return: A dict of the energies attached to the active pokemon
+        :rtype: dict[EnergyType,int]
+        """
+        return self.energies
+
+    def get_cards(self) -> list[PokemonCard]:
+        """Returns the cards in the active evolution
+
+        :return: The cards in the active evolution
+        :rtype: list[PokemonCard]
+        """
+        return list(self.pokemon_cards)
 
 class Deck:
     """Represents a deck of cards and energy for use in battle
@@ -135,9 +199,19 @@ class Deck:
         if energy in self.energies:
             self.energies.remove(energy)
 
+@dataclass(frozen=True)
+class DeckView:
+    active: list[ActivePokemon]
+    hand_size: int
+    deck_size: int
+    energy_queue: list[EnergyType]
+    discard_pile: list[PokemonCard]
+    energy_discard: dict[EnergyType,int]
+
 class DeckSetup:
     BENCH_SIZE = 3
     INITIAL_HAND_SIZE = 5
+    MAX_HAND_SIZE = 10
     FUTURE_ENERGIES = 1
 
     def __init__(self, cards:list[PokemonCard], energies:list[EnergyType]):
@@ -198,7 +272,7 @@ class DeckSetup:
 
         :raises NoCardsToDrawException: When there are no cards left in the deck
         """
-        if len(self.deck) == 0:
+        if len(self.deck) == 0 or len(self.hand) == self.MAX_HAND_SIZE:
             raise NoCardsToDrawException
         self.hand.append(self.deck[0])
         self.deck = self.deck[1:]
@@ -224,14 +298,68 @@ class DeckSetup:
         self.active[active_index].evolve(self.hand[hand_index])
         self.hand.pop(hand_index)
 
-    def retreat(self, active_index:int):
-        pass
+    def retreat(self, active_index:int, energies:dict[EnergyType,int]) -> bool:
+        """Updates the card to represent the active pokemon retreating
 
-    def shuffle_hand_into_deck(self):
-        pass
+        :param active_index: The index of the new card to put out
+        :type active_index: int
+        :param energies: The energies to discard if the retreat is successful
+        :type energies: dict[EnergyType,int]
+        :return: True if the retreat was successful
+        :rtype: bool
+        """
+        if active_index == 0: return False
+        if self.active[active_index].retreat(energies):
+            self.__discard_energies(energies)
+            temp = self.active[0]
+            self.active[0] = self.active[active_index]
+            self.active[active_index] = temp
+            return True
+        return False
 
-    def discard_from_active(self, card):
-        pass
+    def __discard_energies(self, energies:dict[EnergyType,int]) -> None:
+        """Adds energies to the discard pile
+
+        :param energies: The energies to discard
+        :type energies: dict[EnergyType,int]
+        """
+        for energy in energies:
+            if energy in self.energy_discard:
+                self.energy_discard[energy] += energies[energy]
+            else:
+                self.energy_discard[energy] = energies[energy]
+
+    def shuffle_hand_into_deck(self) -> None:
+        """Empties the hand into the deck
+        """
+        self.deck.extend(self.hand)
+        self.hand = []
+        random.shuffle(self.deck)
+
+    def discard_from_active(self, active_index:int) -> None:
+        """Places the cards and energies from the active pokemon into the discard pile
+
+        :param active_index: The index of the pokemon to discard
+        :type active_index: int
+        """
+        self.discard.extend(self.active[active_index].get_cards())
+        energies = self.active[active_index].get_energies()
+        self.__discard_energies(energies)
+        self.active.pop(active_index)
+
+    def play_basic(self, hand_index:int) -> bool:
+        """Plays a basic card from the hand to a new spot on the bench
+
+        :param hand_index: The index of the card in the hand
+        :type hand_index: int
+        :return: True if the card can be placed on the bench, false otherwise
+        :rtype: bool
+        """
+        if self.hand[hand_index].is_basic() and len(self.active) - 1 < self.BENCH_SIZE:
+            self.active.append(self.hand[hand_index])
+            self.hand.pop(hand_index)
+            return True
+        return False
 
 class Battle:
     """Represents a battle between two decks of cards
@@ -254,7 +382,8 @@ class Battle:
         self.team2_points = 0
 
     def start_battle(self):
-        pass
+        self.controller1.setup_cards()
+        self.controller2.setup_cards()
     
     def end_turn(self):
         pass
