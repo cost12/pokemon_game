@@ -210,15 +210,6 @@ class Deck:
         if energy in self.energies:
             self.energies.remove(energy)
 
-@dataclass(frozen=True)
-class DeckView:
-    active: tuple[ActivePokemon]
-    hand_size: int
-    deck_size: int
-    energy_queue: tuple[EnergyType]
-    discard_pile: tuple[PokemonCard]
-    energy_discard: frozendict[EnergyType,int]
-
 class DeckSetup:
     BENCH_SIZE = 3
     INITIAL_HAND_SIZE = 5
@@ -371,6 +362,25 @@ class DeckSetup:
             self.hand.pop(hand_index)
             return True
         return False
+
+@dataclass(frozen=True)
+class DeckView:
+    active: tuple[ActivePokemon]
+    hand_size: int
+    deck_size: int
+    energy_queue: tuple[EnergyType]
+    discard_pile: tuple[PokemonCard]
+    energy_discard: frozendict[EnergyType,int]
+
+def get_deck_view(deck:DeckSetup) -> DeckView:
+    """Get a view of a DeckSetup without the ability to change the DeckSetup
+
+    :param deck: The deck to view
+    :type deck: DeckSetup
+    :return: The immutable partial view of the deck
+    :rtype: DeckView
+    """
+    return DeckView(tuple(deck.active), len(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), frozendict(deck.energy_discard))
 
 class Battle:
     """Represents a battle between two decks of cards
