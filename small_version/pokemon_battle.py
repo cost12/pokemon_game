@@ -3,13 +3,16 @@ from pokemon_types import EnergyType, Condition
 from pokemon_control import BattleController
 
 import random
-import frozendict
+from frozendict import frozendict
 from dataclasses import dataclass, field
 
 class CantEvolveException(Exception):
     pass
 
 class NoCardsToDrawException(Exception):
+    pass
+
+class CantRetreatException(Exception):
     pass
 
 @dataclass(frozen=True)
@@ -54,36 +57,47 @@ class ActivePokemon:
         """
         return self.can_evolve_this_turn and card.evolves_from() == self.active_card().pokemon
 
-    def end_turn(self):
-        self.can_evolve_this_turn = True
+    def end_turn(self) -> 'ActivePokemon':
+        """Completes the actions that happen when a turn ends
+
+        :return: The ActivePokemon after the turn ends
+        :rtype: ActivePokemon
+        """
+        return ActivePokemon(self.pokemon_cards, True, self.damage, self.condition, self.energies)
 
     def between_turns(self):
         pass
 
-    def attach_energy(self, energy:EnergyType) -> None:
+    def attach_energy(self, energy:EnergyType) -> 'ActivePokemon':
         """Adds an energy to the card
 
         :param energy: The type of energy to attach
         :type energy: EnergyType
+        :return: The ActivePokemon after the energy is attached
+        :rtype: ActivePokemon
         """
-        if energy in self.energies:
-            self.energies[energy] += 1
+        energy_dict = dict(self.energies)
+        if energy in energy_dict:
+            energy_dict[energy] += 1
         else:
-            self.energies[energy] = 1
+            energy_dict[energy] = 1
+        return ActivePokemon(self.pokemon_cards, self.can_evolve_this_turn, self.damage, self.condition, frozendict(energy_dict))
 
-    def retreat(self, energies:dict[EnergyType,int]) -> bool:
+    def retreat(self, energies:dict[EnergyType,int]) -> 'ActivePokemon':
         """Discards the required energies and returns true if it can retreat, otherwise returns false
 
         :param energies: The energies to discard
         :type energies: dict[EnergyType,int]
-        :return: True if the card can retreat, false otherwise
-        :rtype: bool
+        :raises CantRetreatException: When the pokemon can't retreat by discarding the given energies
+        :return: The resulting ActivePokemon
+        :rtype: ActivePokemon
         """
         if self.can_retreat(energies):
+            energies_dict = dict(self.energies)
             for energy in energies:
-                self.energies[energy] -= energies[energy]
-            return True
-        return False
+                energies_dict[energy] -= energies[energy]
+            return ActivePokemon(self.pokemon_cards, self.can_evolve_this_turn, self.damage, self.condition, frozendict(energies_dict))
+        raise CantRetreatException()
 
     def can_retreat(self, energies:dict[EnergyType,int]) -> bool:
         """Determines weather the active pokemon can retreat for the given cost. Checks conditions, retreat cost, and energy types
@@ -106,7 +120,7 @@ class ActivePokemon:
         :return: A dict of the energies attached to the active pokemon
         :rtype: dict[EnergyType,int]
         """
-        return self.energies
+        return dict(self.energies)
 
     def get_cards(self) -> list[PokemonCard]:
         """Returns the cards in the active evolution
@@ -198,12 +212,12 @@ class Deck:
 
 @dataclass(frozen=True)
 class DeckView:
-    active: list[ActivePokemon]
+    active: tuple[ActivePokemon]
     hand_size: int
     deck_size: int
-    energy_queue: list[EnergyType]
-    discard_pile: list[PokemonCard]
-    energy_discard: dict[EnergyType,int]
+    energy_queue: tuple[EnergyType]
+    discard_pile: tuple[PokemonCard]
+    energy_discard: frozendict[EnergyType,int]
 
 class DeckSetup:
     BENCH_SIZE = 3
