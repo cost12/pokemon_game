@@ -11,7 +11,8 @@ def battle_control(battle:Battle) -> None:
     :param visualizer: A function that ouputs information so the battle is visible to the user
     :type visualizer: Callable[[str,Any],None]
     """
-    pass
+    battle.controller1.setup_cards()
+    battle.controller2.setup_cards()
 
 class BattleController:
 

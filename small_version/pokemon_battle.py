@@ -3,7 +3,8 @@ from pokemon_types import EnergyType, Condition
 from pokemon_control import BattleController
 
 import random
-from dataclasses import dataclass
+import frozendict
+from dataclasses import dataclass, field
 
 class CantEvolveException(Exception):
     pass
@@ -11,19 +12,13 @@ class CantEvolveException(Exception):
 class NoCardsToDrawException(Exception):
     pass
 
+@dataclass(frozen=True)
 class ActivePokemon:
-
-    def __init__(self, card:PokemonCard):
-        """Represents an active pokemon in battle
-
-        :param card: The card to become the active pokemon
-        :type card: PokemonCard
-        """
-        self.pokemon_cards   = [card]
-        self.can_evolve_this_turn = False
-        self.damage_counders = 0
-        self.condition       = Condition.NONE
-        self.energies        = dict[EnergyType,int]()
+    pokemon_cards:tuple[PokemonCard]
+    can_evolve_this_turn:bool=False
+    damage:int=0
+    condition:Condition=field(default=Condition.NONE)
+    energies:frozendict[EnergyType,int]=field(default=frozendict[EnergyType,int]())
 
     def active_card(self) -> PokemonCard:
         """The card that is currently on top/ highest evolved
@@ -33,17 +28,19 @@ class ActivePokemon:
         """
         return self.pokemon_cards[0]
 
-    def evolve(self, card:PokemonCard) -> None:
+    def evolve(self, card:PokemonCard) -> 'ActivePokemon'|None:
         """Evolves the active pokemon
 
         :param card: The card to evolve to
         :type card: PokemonCard
         :raises CantEvolveException: When the active pokemon does not evolve into the card
+        :return: None if the card can't evolve, or the evolved card
+        :rtype: ActivePokemon|None
         """
         if self.can_evolve():
             self.can_evolve_this_turn = False
             self.condition = Condition.NONE
-            self.pokemon_cards.insert(0, card)
+            return ActivePokemon((card, *self.pokemon_cards), self.can_evolve_this_turn, self.damage, self.condition, self.energies)
         else:
             raise CantEvolveException
         
@@ -382,8 +379,7 @@ class Battle:
         self.team2_points = 0
 
     def start_battle(self):
-        self.controller1.setup_cards()
-        self.controller2.setup_cards()
+        pass
     
     def end_turn(self):
         pass
