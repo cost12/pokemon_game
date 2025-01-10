@@ -33,15 +33,15 @@ def generate_attacks() -> dict[str,Attack]:
     return attacks
 
 def generate_pokemon() -> dict[str,Pokemon]:
-    bulbasaur =  Pokemon('Bulbasaur',  None,       [PokemonType.GRASS,PokemonType.POISON])
-    ivysaur   =  Pokemon('Ivysaur',    bulbasaur,  [PokemonType.GRASS,PokemonType.POISON])
-    venusaur  =  Pokemon('Venusaur',   ivysaur,    [PokemonType.GRASS,PokemonType.POISON])
-    charmander = Pokemon('Charmander', None,       [PokemonType.FIRE])
-    charmeleon = Pokemon('Charmeleon', charmander, [PokemonType.FIRE])
-    charizard  = Pokemon('Charizard',  charmeleon, [PokemonType.FIRE])
-    squirtle   = Pokemon('Squirtle',   None,       [PokemonType.WATER])
-    wartortle  = Pokemon('Wartortle',  squirtle,   [PokemonType.WATER])
-    blastoise  = Pokemon('Blastoise',  wartortle,  [PokemonType.WATER])
+    bulbasaur =  Pokemon('Bulbasaur',  None,       (PokemonType.GRASS,PokemonType.POISON))
+    ivysaur   =  Pokemon('Ivysaur',    bulbasaur,  (PokemonType.GRASS,PokemonType.POISON))
+    venusaur  =  Pokemon('Venusaur',   ivysaur,    (PokemonType.GRASS,PokemonType.POISON))
+    charmander = Pokemon('Charmander', None,       (PokemonType.FIRE))
+    charmeleon = Pokemon('Charmeleon', charmander, (PokemonType.FIRE))
+    charizard  = Pokemon('Charizard',  charmeleon, (PokemonType.FIRE))
+    squirtle   = Pokemon('Squirtle',   None,       (PokemonType.WATER))
+    wartortle  = Pokemon('Wartortle',  squirtle,   (PokemonType.WATER))
+    blastoise  = Pokemon('Blastoise',  wartortle,  (PokemonType.WATER))
     pokemon = {
         bulbasaur.name:  bulbasaur,
         ivysaur.name:    ivysaur,
@@ -56,18 +56,18 @@ def generate_pokemon() -> dict[str,Pokemon]:
     return pokemon
 
 def generate_pokemon_cards(pokemon:dict[str,Pokemon], attacks:dict[str,Attack]) -> dict[str,PokemonCard]:
-    bulbasaur    = PokemonCard(pokemon['Bulbasaur'],  70, PokemonType.GRASS, [attacks['Vine Whip']] ,  1)
-    ivysaur      = PokemonCard(pokemon['Ivysaur'],    90, PokemonType.GRASS, [attacks['Razor Leaf']],  2)
-    venusaur     = PokemonCard(pokemon['Venusaur'],  160, PokemonType.GRASS, [attacks['Giant Bloom']], 3)
-    venusaur_ex  = PokemonCard(pokemon['Venusaur'],  190, PokemonType.GRASS, [attacks['Razor Leaf'], attacks['Giant Bloom']], 3, level=102)
-    charmander   = PokemonCard(pokemon['Charmander'], 60, PokemonType.FIRE,  [attacks['Ember']], 1)
-    charmeleon   = PokemonCard(pokemon['Charmeleon'], 90, PokemonType.FIRE,  [attacks['Fire Claws']], 2)
-    charizard    = PokemonCard(pokemon['Charizard'], 150, PokemonType.FIRE,  [attacks['Fire Spin']], 2)
-    charizard_ex = PokemonCard(pokemon['Charizard'], 180, PokemonType.FIRE,  [attacks['Slash'], attacks['Crimson Storm']], 2, level=102)
-    squirtle     = PokemonCard(pokemon['Squirtle'],   60, PokemonType.WATER, [attacks['Water Gun']], 1)
-    wartortle    = PokemonCard(pokemon['Wartortle'],  80, PokemonType.WATER, [attacks['Wave Splash']], 1)
-    blastoise    = PokemonCard(pokemon['Blastoise'], 150, PokemonType.WATER, [attacks['Hydro Pump']], 3)
-    blastoise_ex = PokemonCard(pokemon['Blastoise'], 180, PokemonType.WATER, [attacks['Surf'], attacks['Hydro Bazooka']], 3, level=102)
+    bulbasaur    = PokemonCard(pokemon['Bulbasaur'],  70, PokemonType.GRASS, (attacks['Vine Whip']) ,  1)
+    ivysaur      = PokemonCard(pokemon['Ivysaur'],    90, PokemonType.GRASS, (attacks['Razor Leaf']),  2)
+    venusaur     = PokemonCard(pokemon['Venusaur'],  160, PokemonType.GRASS, (attacks['Giant Bloom']), 3)
+    venusaur_ex  = PokemonCard(pokemon['Venusaur'],  190, PokemonType.GRASS, (attacks['Razor Leaf'], attacks['Giant Bloom']), 3, level=102)
+    charmander   = PokemonCard(pokemon['Charmander'], 60, PokemonType.FIRE,  (attacks['Ember']), 1)
+    charmeleon   = PokemonCard(pokemon['Charmeleon'], 90, PokemonType.FIRE,  (attacks['Fire Claws']), 2)
+    charizard    = PokemonCard(pokemon['Charizard'], 150, PokemonType.FIRE,  (attacks['Fire Spin']), 2)
+    charizard_ex = PokemonCard(pokemon['Charizard'], 180, PokemonType.FIRE,  (attacks['Slash'], attacks['Crimson Storm']), 2, level=102)
+    squirtle     = PokemonCard(pokemon['Squirtle'],   60, PokemonType.WATER, (attacks['Water Gun']), 1)
+    wartortle    = PokemonCard(pokemon['Wartortle'],  80, PokemonType.WATER, (attacks['Wave Splash']), 1)
+    blastoise    = PokemonCard(pokemon['Blastoise'], 150, PokemonType.WATER, (attacks['Hydro Pump']), 3)
+    blastoise_ex = PokemonCard(pokemon['Blastoise'], 180, PokemonType.WATER, (attacks['Surf'], attacks['Hydro Bazooka']), 3, level=102)
     pokemon = {
         bulbasaur.name():    bulbasaur,
         ivysaur.name():      ivysaur,

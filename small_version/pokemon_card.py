@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pokemon_types import EnergyType, PokemonType, weakness, resistance, energy_type
 
@@ -29,7 +29,7 @@ class Pokemon:
     """
     name: str
     evolves_from: 'Pokemon'
-    types: list[PokemonType]
+    types: tuple[PokemonType]
 
     def get_stage(self) -> int:
         """Gets the evolution stage of the pokemon
@@ -42,16 +42,17 @@ class Pokemon:
         else:
             return 1 + self.evolves_from.get_stage()
 
+@dataclass(frozen=True)
 class PokemonCard:
     """Represents a pokemon card
     """
     pokemon: Pokemon
     hit_points: int
-    level: int
-    card_type: list[PokemonType]
-    ability: list[Ability]
-    attacks: list[Attack]
+    card_type: PokemonType
+    attacks: tuple[Attack]
     retreat_cost: int
+    level: int = 0
+    ability: tuple[Ability] = field(default_factory=tuple[Ability])
 
     def name(self) -> str:
         return self.pokemon.name if self.level_str() == '' else f'{self.pokemon.name} {self.level_str()}'
