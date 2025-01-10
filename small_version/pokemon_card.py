@@ -41,6 +41,11 @@ class Pokemon:
             return 0
         else:
             return 1 + self.evolves_from.get_stage()
+        
+def stage_to_str(stage:int) -> str:
+    if stage == 0:
+        return "basic"
+    return f"stage {stage}"
 
 @dataclass(frozen=True)
 class PokemonCard:
