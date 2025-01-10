@@ -40,7 +40,7 @@ class User:
         :return: True if the deck is added, false otherwise
         :rtype: bool
         """
-        counts = utils.list_to_counts(deck.get_cards())
+        counts = utils.tuple_to_counts(deck.get_cards())
         for card in counts.keys():
             if counts[card] > self.cards[card]:
                 return False
