@@ -57,6 +57,14 @@ class ActivePokemon:
         """
         return self.can_evolve_this_turn and card.evolves_from() == self.active_card().pokemon
 
+    def hp(self) -> int:
+        """The remaining health of the pokemon
+
+        :return: The remaining health of the pokemon
+        :rtype: int
+        """
+        return self.active_card().hit_points - self.damage
+
     def end_turn(self) -> 'ActivePokemon':
         """Completes the actions that happen when a turn ends
 
