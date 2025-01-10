@@ -1,10 +1,10 @@
 from pokemon_card import PokemonCard
 from pokemon_types import EnergyType, Condition
-from pokemon_control import BattleController
 
 import random
 from frozendict import frozendict
 from dataclasses import dataclass, field
+from typing import Optional
 
 class CantEvolveException(Exception):
     pass
@@ -31,7 +31,7 @@ class ActivePokemon:
         """
         return self.pokemon_cards[0]
 
-    def evolve(self, card:PokemonCard) -> 'ActivePokemon'|None:
+    def evolve(self, card:PokemonCard) -> Optional['ActivePokemon']:
         """Evolves the active pokemon
 
         :param card: The card to evolve to
@@ -138,85 +138,19 @@ class ActivePokemon:
         """
         return list(self.pokemon_cards)
 
+@dataclass(frozen=True)
 class Deck:
-    """Represents a deck of cards and energy for use in battle
-    """
-    DUP_LIMIT = 2
-
-    def __init__(self, name:str, initial_cards:list[PokemonCard]|None=None, energies:list[EnergyType]|None=None, size:int=20):
-        """
-        :param name: Name of the deck
-        :type name: str
-        :param initial_cards: Cards initially present in deck, defaults to None
-        :type initial_cards: list[PokemonCard] | None, optional
-        :param energies: Energies initially used by deck, defaults to None
-        :type energies: list[EnergyType] | None, optional
-        :param size: How many cards are supposed to by in the deck for a battle, defaults to 20
-        :type size: int, optional
-        """
-        self.name     = name
-        self.cards    = [] if initial_cards is None else initial_cards
-        self.energies = [] if energies      is None else energies
-        self.size     = size
-        
-    def is_valid(self) -> bool:
-        """Checks whether a deck is valid for use in a battle
-
-        :return: true if the deck is valid, false otherwise
-        :rtype: bool
-        """
-        if len(self.cards) != self.size: return False
-        card_names = dict[str,int]()
-        for card in self.cards:
-            if card.pokemon_name() in card_names:
-                card_names[card.pokemon_name()] += 1
-                if card_names[card.pokemon_name()] > self.DUP_LIMIT:
-                    return False
-            else:
-                card_names[card.pokemon_name()] = 1
-        return True
+    name:str
+    cards:tuple[PokemonCard]
+    energies:tuple[EnergyType]
     
-    def get_cards(self) -> list[PokemonCard]:
+    def get_cards(self) -> tuple[PokemonCard]:
         """Get a list of the cards used in the deck
 
         :return: The cards in the deck
         :rtype: list[PokemonCard]
         """
-        return list(self.cards)
-    
-    def add_card(self, card:PokemonCard):
-        """Add a card to the deck
-
-        :param card: The card to add
-        :type card: PokemonCard
-        """
-        self.cards.append(card)
-
-    def remove_card(self, card:PokemonCard):
-        """Remove a card from the deck
-
-        :param card: The card to remove
-        :type card: PokemonCard
-        """
-        if card in self.cards:
-            self.cards.remove(card)
-
-    def add_energy(self, energy:EnergyType):
-        """Add an energy to the deck
-
-        :param energy: The energy to add
-        :type energy: EnergyType
-        """
-        self.energies.append(energy)
-
-    def remove_energy(self, energy:EnergyType):
-        """Remove an energy from the deck
-
-        :param energy: The energy to remove
-        :type energy: EnergyType
-        """
-        if energy in self.energies:
-            self.energies.remove(energy)
+        return self.cards
 
 class DeckSetup:
     BENCH_SIZE = 3
@@ -413,21 +347,42 @@ class Battle:
     """Represents a battle between two decks of cards
     """
     DECK_SIZE = 20
+    DUPLICATE_LIMIT = 2
 
-    def __init__(self, deck1:Deck, deck2:Deck, controller1:BattleController, controller2:BattleController):
-        assert self.DECK_SIZE == deck1.size and deck1.is_valid()
-        assert self.DECK_SIZE == deck2.size and deck2.is_valid()
+    def __init__(self, deck1:Deck, deck2:Deck):
+        assert self.__deck_is_valid(deck1)
+        assert self.__deck_is_valid(deck2)
 
         self.deck1 = DeckSetup(deck1.cards, deck1.energies)
         self.deck2 = DeckSetup(deck2.cards, deck2.energies)
-
-        self.controller1 = controller1
-        self.controller2 = controller2
 
         self.turn_number = 0
 
         self.team1_points = 0
         self.team2_points = 0
+
+    def __deck_is_valid(self, deck:Deck) -> bool:
+        """Checks whether a deck is valid for use in a battle
+
+        :param deck: The deck to check
+        :type deck: Deck 
+        :return: true if the deck is valid, false otherwise
+        :rtype: bool
+        """
+        if  (len(deck.cards) == self.DECK_SIZE):
+            return False
+        has_basic = False
+        card_names = dict[str,int]()
+        for card in deck.cards:
+            if card.is_basic():
+                has_basic = True
+            if card.name() in card_names:
+                card_names[card.name()] += 1
+                if card_names[card.name()] > self.DUPLICATE_LIMIT:
+                    return False
+            else:
+                card_names[card.name()] = 1
+        return has_basic
 
     def start_battle(self):
         pass
