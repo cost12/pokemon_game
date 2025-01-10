@@ -313,6 +313,7 @@ class OpponentDeckView:
     energy_queue: tuple[EnergyType]
     discard_pile: tuple[PokemonCard]
     energy_discard: frozendict[EnergyType,int]
+    bench_size: int
 
 @dataclass(frozen=True)
 class OwnDeckView:
@@ -322,6 +323,7 @@ class OwnDeckView:
     energy_queue: tuple[EnergyType]
     discard_pile: tuple[PokemonCard]
     energy_discard: frozendict[EnergyType,int]
+    bench_size: int
 
 def get_opponent_deck_view(deck:DeckSetup) -> OpponentDeckView:
     """Get a view of a DeckSetup without the ability to change the DeckSetup
@@ -331,7 +333,7 @@ def get_opponent_deck_view(deck:DeckSetup) -> OpponentDeckView:
     :return: The immutable partial view of the deck
     :rtype: DeckView
     """
-    return OpponentDeckView(tuple(deck.active), len(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), frozendict(deck.energy_discard))
+    return OpponentDeckView(tuple(deck.active), len(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), frozendict(deck.energy_discard), deck.BENCH_SIZE)
 
 def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
     """Get a view of a DeckSetup without the ability to change the DeckSetup
@@ -341,7 +343,7 @@ def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
     :return: The immutable partial view of the deck
     :rtype: DeckView
     """
-    return OwnDeckView(tuple(deck.active), tuple(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), frozendict(deck.energy_discard))
+    return OwnDeckView(tuple(deck.active), tuple(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), frozendict(deck.energy_discard), deck.BENCH_SIZE)
 
 class Battle:
     """Represents a battle between two decks of cards
