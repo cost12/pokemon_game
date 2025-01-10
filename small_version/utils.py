@@ -1,6 +1,6 @@
 from typing import Any
 
-def list_to_counts(lis:list[Any]) -> dict[Any,int]:
+def tuple_to_counts(tup:tuple[Any]) -> dict[Any,int]:
     """Takes in a list of hashable objects and returns a dict where each item is mapped to the number of times it appears
 
     :param lis: The list to consider
@@ -9,7 +9,7 @@ def list_to_counts(lis:list[Any]) -> dict[Any,int]:
     :rtype: dict[Any,int]
     """
     r_dict = {}
-    for x in lis:
+    for x in tup:
         if x in r_dict:
             r_dict[x] += 1
         else:
