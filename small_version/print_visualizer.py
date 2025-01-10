@@ -1,6 +1,6 @@
 from typing import Any
 
-from pokemon_card import PokemonCard, Attack
+from pokemon_card import PokemonCard, Attack, stage_to_str
 from pokemon_battle import ActivePokemon, OwnDeckView, OpponentDeckView
 
 
@@ -8,22 +8,26 @@ def visualize_attack(attack:Attack) -> None:
     print(f"{attack.name} {attack.base_damage}\n{attack.text}\nCost: {attack.energy_cost}")
 
 def visualize_active_pokemon(pokemon:ActivePokemon) -> None:
-    print(f"{pokemon.active_card().card_type} {pokemon.active_card().name()} {pokemon.hp()} HP")
+    print(f"{pokemon.active_card().card_type} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().name()} {pokemon.hp()} HP")
+    if not pokemon.active_card().is_basic():
+        print(f"Evolves from {pokemon.active_card().evolves_from().name()}")
     for attack in pokemon.active_card().attacks:
         visualize_attack(attack)
     print(f"Retreat: {pokemon.active_card().retreat_cost}")
 
 def visualize_card(card:PokemonCard) -> None:
-    print(f"{card.card_type} {card.name()} {card.hit_points} HP")
+    print(f"{card.card_type.name} {stage_to_str(card.pokemon.get_stage())} {card.name()} {card.hit_points} HP")
+    if not card.is_basic():
+        print(f"Evolves from {card.evolves_from().name()}")
     for attack in card.attacks:
         visualize_attack(attack)
     print(f"Retreat: {card.retreat_cost}")
 
 def visualize_active_pokemon_quick(pokemon:ActivePokemon) -> None:
-    print(f"{pokemon.active_card().card_type} {pokemon.active_card().name()} {pokemon.hp()} HP")
+    print(f"{pokemon.active_card().card_type} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().name()} {pokemon.hp()} HP")
 
 def visualize_card_quick(card:PokemonCard) -> None:
-    print(f"{card.card_type} {card.name()} {card.hit_points} HP")
+    print(f"{card.card_type.name} {stage_to_str(card.pokemon.get_stage())} {card.name()} {card.hit_points} HP")
 
 def visualize_actives(active:tuple[ActivePokemon]) -> None:
     print("Active:")
@@ -43,7 +47,13 @@ def visualize_card_list(cards:tuple[PokemonCard], type:str) -> None:
 def visualize_own_deck(deck:OwnDeckView) -> None:
     visualize_actives(deck.active)
     visualize_card_list(deck.hand, "Hand")
-    print(f"Deck: {deck.deck_size} cards\nNext Energies: {', '.join([energy.value for energy in deck.energy_queue])}")
+    print(f"Deck: {deck.deck_size} cards\nNext Energies: {', '.join([energy.name for energy in deck.energy_queue])}")
+    visualize_card_list(deck.discard_pile, "Discard")
+    print(f"Energy Discard: {deck.energy_discard}")
+
+def visualize_opponent_deck(deck:OpponentDeckView) -> None:
+    visualize_actives(deck.active)
+    print(f"Hand: {deck.hand_size}\nDeck: {deck.deck_size} cards\nNext Energies: {', '.join([energy.name for energy in deck.energy_queue])}")
     visualize_card_list(deck.discard_pile, "Discard")
     print(f"Energy Discard: {deck.energy_discard}")
 
