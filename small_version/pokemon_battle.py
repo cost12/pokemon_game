@@ -348,8 +348,10 @@ def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
 class Battle:
     """Represents a battle between two decks of cards
     """
-    DECK_SIZE = 20
-    DUPLICATE_LIMIT = 2
+    DECK_SIZE:int = 20
+    DUPLICATE_LIMIT:int = 2
+    BASIC_REQUIRED:bool = True
+    POINTS_TO:int = 3
 
     def __init__(self, deck1:Deck, deck2:Deck):
         assert self.__deck_is_valid(deck1)
@@ -362,6 +364,15 @@ class Battle:
 
         self.team1_points = 0
         self.team2_points = 0
+
+        self.team1_ready = False
+        self.team2_ready = False
+
+    def team_turn(self) -> int:
+        return self.turn_number % 2
+
+    def is_over(self) -> bool:
+        return self.team1_points >= self.POINTS_TO or self.team2_points >= self.POINTS_TO
 
     def __deck_is_valid(self, deck:Deck) -> bool:
         """Checks whether a deck is valid for use in a battle
@@ -384,10 +395,36 @@ class Battle:
                     return False
             else:
                 card_names[card.name()] = 1
-        return has_basic
+        return has_basic or not self.BASIC_REQUIRED
 
-    def start_battle(self):
-        pass
+    def __valid_setup(self, to_play:tuple[int], deck:DeckSetup) -> bool:
+        indices = set()
+        for index in to_play:
+            if index in indices:
+                return False
+            indices.add(index)
+            if index < 0 or index >= len(deck.hand) or not deck.hand[index].is_basic():
+                return False
+        if len(to_play) > 0 and len(to_play) <= deck.BENCH_SIZE + 1:
+            return True
+        return False
+
+    def __setup(self, to_play:tuple[int], deck:DeckSetup) -> bool:
+        if not self.__valid_setup(to_play, deck):
+            return False
+        for i in range(len(to_play)):
+            subtract = 0
+            for j in range(i):
+                if to_play[j] < to_play[i]:
+                    subtract += 1
+            assert deck.play_basic(to_play[i]-subtract)
+        return True
+    
+    def team1_setup(self, to_play:tuple[int]):
+        self.team1_ready = self.__setup(to_play, self.deck1)
+
+    def team2_setup(self, to_play:tuple[int]):
+        self.team2_ready = self.__setup(to_play, self.deck2)
     
     def end_turn(self):
         pass
