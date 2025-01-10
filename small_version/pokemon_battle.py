@@ -369,7 +369,7 @@ class Battle:
         :return: true if the deck is valid, false otherwise
         :rtype: bool
         """
-        if  (len(deck.cards) == self.DECK_SIZE):
+        if not (len(deck.cards) == self.DECK_SIZE):
             return False
         has_basic = False
         card_names = dict[str,int]()
