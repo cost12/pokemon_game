@@ -53,7 +53,7 @@ def battle_control(battle:Battle, controller1:'BattleController', controller2:'B
                 success = battle.end_turn()
         if not success:
             print("Invalid move, try again")
-        if battle.turn_number == 0:
+        if battle.team_turn() == 0:
             print("Team 1, it's your turn")
             move, inputs = controller1.make_move(get_own_deck_view(battle.deck1), get_opponent_deck_view(battle.deck2))
         else:
