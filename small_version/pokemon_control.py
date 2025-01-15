@@ -17,13 +17,13 @@ def battle_control(battle:Battle, controller1:'BattleController', controller2:'B
     print("Team 1 set up your cards")
     move1 = controller1.setup_cards(get_own_deck_view(battle.deck1), get_opponent_deck_view(battle.deck2))
     while not battle.valid_setup(move1, battle.deck1):
-        print("Invalid move, Team 1 set up your cards")
+        print("\nInvalid move, Team 1 set up your cards")
         move1 = controller1.setup_cards(get_own_deck_view(battle.deck1), get_opponent_deck_view(battle.deck2))
     
     print("Team 2 set up your cards")
     move2 = controller2.setup_cards(get_own_deck_view(battle.deck2), get_opponent_deck_view(battle.deck1))
     while not battle.valid_setup(move2, battle.deck2):
-        print("Invalid move, Team 2 set up your cards")
+        print("\nInvalid move, Team 2 set up your cards")
         move2 = controller2.setup_cards(get_own_deck_view(battle.deck2), get_opponent_deck_view(battle.deck1))
 
     assert battle.team1_setup(move1)
@@ -53,8 +53,9 @@ def battle_control(battle:Battle, controller1:'BattleController', controller2:'B
                 success = battle.end_turn()
         if not success:
             print("Invalid move, try again")
-        if battle.team_turn() == 0:
-            print("Team 1, it's your turn")
+            print(f"Try one of these: {battle.available_actions()}")
+        if battle.team1_move():
+            print("Team 1, it's your move")
             move, inputs = controller1.make_move(get_own_deck_view(battle.deck1), get_opponent_deck_view(battle.deck2))
         else:
             print("Team 2, it's your turn")
@@ -112,7 +113,7 @@ class CommandLineBattleController(BattleController):
                 return False, -1
         try:
             num = int(tokens[-1])
-            if num > max_val:
+            if num < 0 or num >= max_val:
                 return False, num
             return True, num
         except ValueError:
@@ -120,19 +121,22 @@ class CommandLineBattleController(BattleController):
 
     def __prompt_command(self, user_input:str, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, additional_moves:dict[str,str]):
         action_descs = {
-            'l': 'list commands',
-            'view_own': 'View your own cards/deck setup',
-            'view_opp': "View your opponent's cards/deck setup",
-            'own_hand x': 'View the card at index x in your hand',
+            'l':            'list commands',
+            'actions':      'List the available actions',
+            'view_own':     'View your own cards/deck setup',
+            'view_opp':     "View your opponent's cards/deck setup",
+            'own_hand x':   'View the card at index x in your hand',
             'own_active x': 'View the card at index x in your active spots',
             'opp_active x': "View the card at index x in your opponent's active spots"
         }
         match user_input:
             case "l":
                 for action, description in action_descs.items():
-                    print(f"{action}: {description}")
+                    print(f"{action:20}: {description}")
                 for action, description in additional_moves.items():
-                    print(f"{action}: {description}")
+                    print(f"{action:20}: {description}")
+            case 'actions':
+                print("TODO: this :(")
             case "view_own":
                 visualize_own_deck(own_deck)
             case "view_opp":
@@ -159,10 +163,10 @@ class CommandLineBattleController(BattleController):
                 print("invalid command")
 
     def setup_cards(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView) -> tuple[int]:
-        user_input = input("Select your action (l for list of actions): ")
+        user_input = input("\nSelect your action (l for list of actions): ")
         while not self.__valid_setup(user_input, own_deck):
             self.__prompt_command(user_input, own_deck, opponent_deck, {"play x1 ... xn": "Play the cards at index x1 and ... xn from your hand to the active spot"})
-            user_input = input("Select your action: ")
+            user_input = input("\nSelect your action: ")
         return self.__parse_setup(user_input)
     
     def __validate_move(self, input_str:str) -> tuple[bool,str,tuple|str]:
@@ -174,7 +178,7 @@ class CommandLineBattleController(BattleController):
                         hand_index = int(tokens[1])
                     except ValueError:
                         return False, "play_card", "requires int"
-                    return True, "play_card", (hand_index)
+                    return True, "play_card", (hand_index,)
                 return False, "play_card", "requires one argument"
             case "play_basic":
                 if len(tokens) == 2:
@@ -182,7 +186,7 @@ class CommandLineBattleController(BattleController):
                         hand_index = int(tokens[1])
                     except ValueError:
                         return False, "play_basic", "requires int"
-                    return True, "play_basic", (hand_index)
+                    return True, "play_basic", (hand_index,)
                 return False, "play_basic", "requires one argument"   
             case "evolve":
                 if len(tokens) == 3:
@@ -213,7 +217,7 @@ class CommandLineBattleController(BattleController):
                         attack_index = int(tokens[1])
                     except ValueError:
                         return False, "attack", "requires an int"
-                    return True, "attack", (attack_index)
+                    return True, "attack", (attack_index,)
                 return False, "attack", "requires an argument"
             case "use_ability":
                 if len(tokens) == 3:
@@ -230,7 +234,7 @@ class CommandLineBattleController(BattleController):
                         index = int(tokens[1])
                     except ValueError:
                         return False, "select", "requires an int"
-                    return True, "select", (index)
+                    return True, "select", (index,)
                 return False, "select", "requires an argument"
             case "place_energy":
                 if len(tokens) == 2:
@@ -238,17 +242,19 @@ class CommandLineBattleController(BattleController):
                         active_index = int(tokens[1])
                     except ValueError:
                         return False, "place_energy", "requires an int"
-                    return True, "place_energy", (active_index)
+                    return True, "place_energy", (active_index,)
                 return False, "place_energy", "requires an argument"
             case "end_turn":
                 if len(tokens) == 1:
-                    return True, "end_turn", (None)
+                    return True, "end_turn", (None,)
                 return False, "end_turn", "requires no arguments"
+            case _:
+                return False, "", ""
 
     def make_move(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView) -> str:
         additional_moves = {
             "play_card x":         "...",
-            "play_basic x y":      "...",
+            "play_basic x":      "...",
             "evolve x y":          "...",
             "retreat x e1 ... en": "...",
             "attack x":            "...",
@@ -257,10 +263,10 @@ class CommandLineBattleController(BattleController):
             "place_energy x":      "...",
             "end_turn":            "..."
         }
-        user_input = input("Select your action (l for list of actions): ")
+        user_input = input("\nSelect your action (l for list of actions): ")
         valid, move, inputs = self.__validate_move(user_input)
         while not valid:
             self.__prompt_command(user_input, own_deck, opponent_deck, additional_moves)
-            user_input = input("Select your action: ")
+            user_input = input("\nSelect your action: ")
             valid, move, inputs = self.__validate_move(user_input)
         return move, inputs
