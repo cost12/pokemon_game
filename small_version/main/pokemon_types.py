@@ -1,4 +1,6 @@
 from enum import Enum
+from frozendict import frozendict
+from dataclasses import dataclass, field
 
 class EnergyType(Enum):
     """Represents the different types of energy available
@@ -91,3 +93,59 @@ class Condition(Enum):
     CANT_ATTACK    = 5
     CANT_RETREAT   = 6
     REDUCED_ATTACK = 7
+
+@dataclass(frozen=True)
+class EnergyContainer:
+    energies: frozendict[EnergyType,int] = field(default_factory=frozendict[EnergyType,int])
+
+    def size(self) -> int:
+        return sum(self.energies.values())
+    
+    def size_of(self, energy:EnergyType) -> int:
+        return self.energies[energy] if energy in self.energies else 0 
+
+    def add_energy(self, energy:EnergyType) -> 'EnergyContainer':
+        """Add an energy to the container
+
+        :param energy: The type of energy to add
+        :type energy: EnergyType
+        :return: The new energy container with the energy added
+        :rtype: EnergyContainer
+        """
+        energies = dict(self.energies)
+        if energy in self.energies:
+            energies[energy] += 1
+        else:
+            energies[energy] = 1        
+        return EnergyContainer(frozendict(energies))
+    
+    def add_energies(self, energies:'EnergyContainer') -> 'EnergyContainer':
+        """Adds two energy containers together
+
+        :param energies: The energies to add
+        :type energies: EnergyContainer
+        :return: The new energy container with energies from both containers
+        :rtype: EnergyContainer
+        """
+        new_energies = dict(self.energies)
+        for energy, count in energies.energies.items():
+            if energy in new_energies:
+                new_energies[energy] += count
+            else:
+                new_energies[energy] = count
+        return EnergyContainer(frozendict(new_energies))
+
+    def remove_energy(self, energy:EnergyType) -> 'EnergyContainer':
+        """Remove an energy from the container
+
+        :param energy: The type of energy to remove
+        :type energy: EnergyType
+        :return: The new energy container with the energy removed
+        :rtype: EnergyContainer
+        :raises ValueError: When there is no energy of the type specified within the container
+        """
+        energies = dict(self.energies)
+        if energy in self.energies:
+            energies[energy] -= 1
+            return EnergyContainer(frozendict(energies))
+        raise ValueError
