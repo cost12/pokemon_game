@@ -1,6 +1,6 @@
-from pokemon_battle import Battle, OwnDeckView, OpponentDeckView, get_opponent_deck_view, get_own_deck_view
-from print_visualizer import visualize_own_deck, visualize_opponent_deck, visualize_active_pokemon, visualize_card
-from pokemon_types import EnergyType
+from main.pokemon_battle import Battle, OwnDeckView, OpponentDeckView, get_opponent_deck_view, get_own_deck_view
+from main.print_visualizer import visualize_own_deck, visualize_opponent_deck, visualize_active_pokemon, visualize_card
+from main.pokemon_types import EnergyType
 
 def battle_control(battle:Battle, controller1:'BattleController', controller2:'BattleController') -> None:
     """Controls the flow and inputs to a battle

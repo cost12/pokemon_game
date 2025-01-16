@@ -1,7 +1,7 @@
-from pokemon_card import PokemonCard
-from pokemon_battle import Deck
-from pokemon_control import BattleController
-import utils
+from main.pokemon_card import PokemonCard
+from main.pokemon_battle import Deck
+from main.pokemon_control import BattleController
+import main.utils as utils
 
 class User:
     """Represents a user that collects and battles with cards

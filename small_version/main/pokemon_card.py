@@ -1,27 +1,22 @@
 from dataclasses import dataclass, field
+from frozendict import frozendict
 
-from pokemon_types import EnergyType, PokemonType, weakness, resistance, energy_type
+from main.pokemon_types import EnergyType, PokemonType, weakness, resistance, energy_type
 
+@dataclass(frozen=True)
 class Ability:
-    """Represents an ability a pokemon can have
-    """
+    name:str
+    text:str
+    effect:str
 
-    def __init__(self, name:str, text:str, effect:str):
-        self.name = name
-        self.text = text
-        self.effect = effect
-
+@dataclass(frozen=True)
 class Attack:
-    """Represents an attack by a pokemon
-    """
-
-    def __init__(self, name:str, base_damage:int, energy_cost:dict[EnergyType,int], attack_type:PokemonType, text:str='', effect:str=''):
-        self.name = name
-        self.base_damage = base_damage
-        self.text = text
-        self.effect = effect
-        self.energy_cost = energy_cost
-        self.attack_type = attack_type
+    name:str
+    base_damage:int
+    energy_cost:frozendict[EnergyType,int]
+    attack_type:PokemonType
+    text:str=''
+    effect:str=''
 
 @dataclass(frozen=True)
 class Pokemon:

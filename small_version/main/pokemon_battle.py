@@ -1,6 +1,6 @@
-from pokemon_card import PokemonCard
-from pokemon_types import EnergyType, Condition
-import utils
+from main.pokemon_card import PokemonCard
+from main.pokemon_types import EnergyType, Condition
+import main.utils as utils
 
 import random
 from frozendict import frozendict

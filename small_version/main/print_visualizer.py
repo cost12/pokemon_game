@@ -1,7 +1,7 @@
 from typing import Any
 
-from pokemon_card import PokemonCard, Attack, stage_to_str
-from pokemon_battle import ActivePokemon, OwnDeckView, OpponentDeckView
+from main.pokemon_card import PokemonCard, Attack, stage_to_str
+from main.pokemon_battle import ActivePokemon, OwnDeckView, OpponentDeckView
 
 def visualize_attack(attack:Attack, indent:str="") -> None:
     if attack.text == "":
