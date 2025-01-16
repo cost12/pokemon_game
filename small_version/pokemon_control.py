@@ -198,7 +198,7 @@ class CommandLineBattleController(BattleController):
                     return True, "evolve", (hand_index, active_index)
                 return False, "evolve", "requires 2 arguments"                    
             case "retreat":
-                if len(tokens) > 2:
+                if len(tokens) >= 2:
                     try:
                         active_index = int(tokens[1])
                     except ValueError:
@@ -266,6 +266,7 @@ class CommandLineBattleController(BattleController):
         user_input = input("\nSelect your action (l for list of actions): ")
         valid, move, inputs = self.__validate_move(user_input)
         while not valid:
+            print(move)
             self.__prompt_command(user_input, own_deck, opponent_deck, additional_moves)
             user_input = input("\nSelect your action: ")
             valid, move, inputs = self.__validate_move(user_input)

@@ -32,7 +32,7 @@ class ActivePokemon:
         """
         return self.pokemon_cards[0]
 
-    def evolve(self, card:PokemonCard) -> Optional['ActivePokemon']:
+    def evolve(self, card:PokemonCard) -> 'ActivePokemon':
         """Evolves the active pokemon
 
         :param card: The card to evolve to
@@ -41,10 +41,8 @@ class ActivePokemon:
         :return: None if the card can't evolve, or the evolved card
         :rtype: ActivePokemon|None
         """
-        if self.can_evolve():
-            self.can_evolve_this_turn = False
-            self.condition = Condition.NONE
-            return ActivePokemon((card, *self.pokemon_cards), self.can_evolve_this_turn, self.damage, self.condition, self.energies)
+        if self.can_evolve(card):
+            return ActivePokemon((card, *self.pokemon_cards), False, self.damage, Condition.NONE, self.energies)
         else:
             raise CantEvolveException
         
@@ -282,7 +280,7 @@ class DeckSetup:
     def take_damage(self, amount:int, damage_type:EnergyType) -> None:
         self.active[0] = self.active[0].take_damage(amount, damage_type)
         if self.active[0].is_knocked_out():
-            self.discard_from_active()
+            self.discard_from_active(0)
 
     def __discard_energies(self, energies:dict[EnergyType,int]) -> None:
         """Adds energies to the discard pile
@@ -554,8 +552,8 @@ class Battle:
             required_count = sum(deck.active[0].active_card().attacks[attack_index].energy_cost.values())
             if required_count > active_count:
                 return False
-            for energy, count in deck.active[0].active_card().attacks[attack_index].energy_cost.items():
-                if not energy == EnergyType.COLORLESS and count > deck.active[0].energies[energy]:
+            for energy, cost in deck.active[0].active_card().attacks[attack_index].energy_cost.items():
+                if not energy == EnergyType.COLORLESS and (not energy in deck.active[0].energies or cost > deck.active[0].energies[energy]):
                     return False
             self.__defending_deck().take_damage(deck.active[0].active_card().attacks[attack_index].base_damage, deck.active[0].active_card().get_energy_type())
             if self.__defending_deck().active[0].is_knocked_out():
