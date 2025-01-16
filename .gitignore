@@ -4,3 +4,4 @@ instructions.txt
 .env
 docs/_*
 __pycache__
+.pytest_cache
