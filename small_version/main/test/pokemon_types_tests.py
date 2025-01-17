@@ -106,3 +106,11 @@ def test_at_least_as_big():
     assert container3.at_least_as_big(container2)
     assert not container1.at_least_as_big(container3, False)
     assert not container3.at_least_as_big(container1, False)
+
+def test_as_big_as2():
+    energies1 = frozendict({EnergyType.FIRE: 1, EnergyType.GRASS: 2})
+    container1 = EnergyContainer(energies1)
+    energies2 = frozendict({EnergyType.FIRE: 1})
+    container2 = EnergyContainer(energies2)
+
+    assert container1.at_least_as_big(container2)

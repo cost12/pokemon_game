@@ -1,11 +1,8 @@
 from pokemon.pokemon_card import PokemonCard
 from pokemon.pokemon_types import EnergyType, Condition, EnergyContainer
-import pokemon.utils as utils
 
 import random
-from frozendict import frozendict
 from dataclasses import dataclass, field
-from typing import Optional
 
 class CantEvolveException(Exception):
     pass
@@ -44,7 +41,7 @@ class ActivePokemon:
         if self.can_evolve(card):
             return ActivePokemon((card, *self.pokemon_cards), False, self.damage, Condition.NONE, self.energies)
         else:
-            raise CantEvolveException
+            raise CantEvolveException()
         
     def can_evolve(self, card:PokemonCard) -> bool:
         """Checks whether the active card can evolve into the given card
@@ -62,7 +59,7 @@ class ActivePokemon:
         :return: The remaining health of the pokemon
         :rtype: int
         """
-        return self.active_card().hit_points - self.damage
+        return max(self.active_card().hit_points - self.damage, 0)
 
     def end_turn(self) -> 'ActivePokemon':
         """Completes the actions that happen when a turn ends
@@ -106,7 +103,7 @@ class ActivePokemon:
         :return: True if the card can retreat, false otherwise
         :rtype: bool
         """
-        return energies.size() == self.energies.size() and self.energies.at_least_as_big(energies)
+        return energies.size() == self.active_card().retreat_cost and self.energies.at_least_as_big(energies)
 
     def take_damage(self, amount:int, damage_type:EnergyType) -> 'ActivePokemon':
         total = amount
