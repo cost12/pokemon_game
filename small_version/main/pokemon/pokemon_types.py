@@ -145,7 +145,7 @@ class EnergyContainer:
         :raises ValueError: When there is no energy of the type specified within the container
         """
         energies = dict(self.energies)
-        if energy in self.energies:
+        if self.size_of(energy) > 0:
             energies[energy] -= 1
             return EnergyContainer(frozendict(energies))
         raise ValueError
@@ -161,7 +161,7 @@ class EnergyContainer:
         """
         new_energies = dict(self.energies)
         for energy, count in energies.energies.items():
-            if energy in new_energies and count <= new_energies[energy]:
+            if self.size_of(energy) >= count:
                 new_energies[energy] -= count
             else:
                 raise ValueError
