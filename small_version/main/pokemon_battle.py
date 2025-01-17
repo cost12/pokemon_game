@@ -1,5 +1,5 @@
 from main.pokemon_card import PokemonCard
-from main.pokemon_types import EnergyType, Condition
+from main.pokemon_types import EnergyType, Condition, EnergyContainer
 import main.utils as utils
 
 import random
@@ -22,7 +22,7 @@ class ActivePokemon:
     can_evolve_this_turn:bool=False
     damage:int=0
     condition:Condition=field(default=Condition.NONE)
-    energies:frozendict[EnergyType,int]=field(default=frozendict[EnergyType,int]())
+    energies:EnergyContainer=field(default=EnergyContainer())
 
     def active_card(self) -> PokemonCard:
         """The card that is currently on top/ highest evolved
@@ -72,8 +72,8 @@ class ActivePokemon:
         """
         return ActivePokemon(self.pokemon_cards, True, self.damage, self.condition, self.energies)
 
-    def between_turns(self):
-        pass
+    def between_turns(self) -> 'ActivePokemon':
+        return self
 
     def attach_energy(self, energy:EnergyType) -> 'ActivePokemon':
         """Adds an energy to the card
@@ -83,14 +83,9 @@ class ActivePokemon:
         :return: The ActivePokemon after the energy is attached
         :rtype: ActivePokemon
         """
-        energy_dict = dict(self.energies)
-        if energy in energy_dict:
-            energy_dict[energy] += 1
-        else:
-            energy_dict[energy] = 1
-        return ActivePokemon(self.pokemon_cards, self.can_evolve_this_turn, self.damage, self.condition, frozendict(energy_dict))
+        return ActivePokemon(self.pokemon_cards, self.can_evolve_this_turn, self.damage, self.condition, self.energies.add_energy(energy))
 
-    def retreat(self, energies:dict[EnergyType,int]) -> 'ActivePokemon':
+    def retreat(self, energies:EnergyContainer) -> 'ActivePokemon':
         """Discards the required energies and returns true if it can retreat, otherwise returns false
 
         :param energies: The energies to discard
@@ -100,13 +95,10 @@ class ActivePokemon:
         :rtype: ActivePokemon
         """
         if self.can_retreat(energies):
-            energies_dict = dict(self.energies)
-            for energy in energies:
-                energies_dict[energy] -= energies[energy]
-            return ActivePokemon(self.pokemon_cards, self.can_evolve_this_turn, self.damage, self.condition, frozendict(energies_dict))
+            return ActivePokemon(self.pokemon_cards, self.can_evolve_this_turn, self.damage, self.condition, self.energies.remove_energies(energies))
         raise CantRetreatException()
 
-    def can_retreat(self, energies:dict[EnergyType,int]) -> bool:
+    def can_retreat(self, energies:EnergyContainer) -> bool:
         """Determines weather the active pokemon can retreat for the given cost. Checks conditions, retreat cost, and energy types
 
         :param energies: The energies to discard in order to retreat, must have the same energies attached to the card
@@ -114,12 +106,7 @@ class ActivePokemon:
         :return: True if the card can retreat, false otherwise
         :rtype: bool
         """
-        total = 0
-        for energy in energies:
-            if energy not in self.energies or energies[energy] > self.energies[energy]:
-                return False
-            total += energies[energy]
-        return total == self.active_card().retreat_cost
+        return self.energies.at_least_as_big(energies)
 
     def take_damage(self, amount:int, damage_type:EnergyType) -> 'ActivePokemon':
         total = amount
@@ -132,13 +119,13 @@ class ActivePokemon:
     def is_knocked_out(self):
         return self.hp() <= 0
 
-    def get_energies(self) -> dict[EnergyType,int]:
+    def get_energies(self) -> EnergyContainer:
         """Return the energies attached to the pokemon
 
         :return: A dict of the energies attached to the active pokemon
         :rtype: dict[EnergyType,int]
         """
-        return dict(self.energies)
+        return self.energies
 
     def get_cards(self) -> list[PokemonCard]:
         """Returns the cards in the active evolution
@@ -181,7 +168,7 @@ class DeckSetup:
         self.hand           = list[PokemonCard]()
         self.active         = list[ActivePokemon]()
         self.discard        = list[PokemonCard]()
-        self.energy_discard = dict[EnergyType,int]()
+        self.energy_discard = EnergyContainer()
         self.deck           = list[PokemonCard]()
         self.next_energies  = list[EnergyType]()
         self.used_supporter = False
@@ -222,8 +209,8 @@ class DeckSetup:
         self.draw_card()
 
     def between_turns(self) -> None:
-        for active in self.active:
-            active.between_turns()
+        for i in range(len(self.active)):
+            self.active[i] = self.active[i].between_turns()
 
     def end_turn(self) -> None:
         for i in range(len(self.active)):
@@ -260,19 +247,19 @@ class DeckSetup:
         self.active[active_index] = self.active[active_index].evolve(self.hand[hand_index])
         self.hand.pop(hand_index)
 
-    def retreat(self, active_index:int, energies:dict[EnergyType,int]) -> bool:
+    def retreat(self, active_index:int, energies:EnergyContainer) -> bool:
         """Updates the card to represent the active pokemon retreating
 
         :param active_index: The index of the new card to put out
         :type active_index: int
         :param energies: The energies to discard if the retreat is successful
-        :type energies: dict[EnergyType,int]
+        :type energies: EnergyContainer
         :return: True if the retreat was successful
         :rtype: bool
         """
         if active_index == 0: return False
         temp = self.active[active_index].retreat(energies)
-        self.__discard_energies(energies)
+        self.energy_discard = self.energy_discard.add_energies(energies)
         self.active[active_index] = self.active[0]
         self.active[0] = temp
         return True
@@ -281,18 +268,6 @@ class DeckSetup:
         self.active[0] = self.active[0].take_damage(amount, damage_type)
         if self.active[0].is_knocked_out():
             self.discard_from_active(0)
-
-    def __discard_energies(self, energies:dict[EnergyType,int]) -> None:
-        """Adds energies to the discard pile
-
-        :param energies: The energies to discard
-        :type energies: dict[EnergyType,int]
-        """
-        for energy in energies:
-            if energy in self.energy_discard:
-                self.energy_discard[energy] += energies[energy]
-            else:
-                self.energy_discard[energy] = energies[energy]
 
     def shuffle_hand_into_deck(self) -> None:
         """Empties the hand into the deck
@@ -309,7 +284,7 @@ class DeckSetup:
         """
         self.discard.extend(self.active[active_index].get_cards())
         energies = self.active[active_index].get_energies()
-        self.__discard_energies(energies)
+        self.energy_discard = self.energy_discard.add_energies(energies)
         self.active.pop(active_index)
 
     def attach_energy(self, active_index:int) -> None:
@@ -333,10 +308,12 @@ class DeckSetup:
             return True
         return False
 
-    def replace_starter(self, active_index:int) -> None:
+    def replace_starter(self, active_index:int) -> bool:
         if active_index > 0:
             self.active[0] = self.active[active_index]
             self.active.pop(active_index)
+            return True
+        return False
 
 @dataclass(frozen=True)
 class OpponentDeckView:
@@ -345,7 +322,7 @@ class OpponentDeckView:
     deck_size: int
     energy_queue: tuple[EnergyType]
     discard_pile: tuple[PokemonCard]
-    energy_discard: frozendict[EnergyType,int]
+    energy_discard: EnergyContainer
     bench_size: int
 
 @dataclass(frozen=True)
@@ -355,7 +332,7 @@ class OwnDeckView:
     deck_size: int
     energy_queue: tuple[EnergyType]
     discard_pile: tuple[PokemonCard]
-    energy_discard: frozendict[EnergyType,int]
+    energy_discard: EnergyContainer
     bench_size: int
 
 def get_opponent_deck_view(deck:DeckSetup) -> OpponentDeckView:
@@ -366,7 +343,7 @@ def get_opponent_deck_view(deck:DeckSetup) -> OpponentDeckView:
     :return: The immutable partial view of the deck
     :rtype: DeckView
     """
-    return OpponentDeckView(tuple(deck.active), len(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), frozendict(deck.energy_discard), deck.BENCH_SIZE)
+    return OpponentDeckView(tuple(deck.active), len(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), deck.energy_discard, deck.BENCH_SIZE)
 
 def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
     """Get a view of a DeckSetup without the ability to change the DeckSetup
@@ -376,7 +353,7 @@ def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
     :return: The immutable partial view of the deck
     :rtype: DeckView
     """
-    return OwnDeckView(tuple(deck.active), tuple(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), frozendict(deck.energy_discard), deck.BENCH_SIZE)
+    return OwnDeckView(tuple(deck.active), tuple(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), deck.energy_discard, deck.BENCH_SIZE)
 
 class Turn:
 
@@ -494,6 +471,9 @@ class Battle:
     
     def __verify_active_index(self, index:int, deck:DeckSetup) -> bool:
         return index >= 0 and index < len(deck.active)
+    
+    def __verify_bench_index(self, index:int, deck:DeckSetup) -> bool:
+        return index > 0 and index < len(deck.active)
 
     def __current_deck(self) -> DeckSetup:
         if self.team1_move():
@@ -531,15 +511,14 @@ class Battle:
                 return True
         return False
 
-    def retreat(self, active_index:int, energies:list[EnergyType]) -> bool:
+    def retreat(self, active_index:int, energies:EnergyContainer) -> bool:
         if not self.__could_retreat():
             return False
         deck = self.__current_deck()
         valid = self.__verify_active_index(active_index, deck)
         if valid:
-            energy_dict = utils.tuple_to_counts(energies)
-            if deck.active[0].can_retreat(energy_dict):
-                deck.retreat(active_index, energy_dict)
+            if deck.active[0].can_retreat(energies):
+                deck.retreat(active_index, energies)
                 return True
         return False
 
@@ -548,14 +527,10 @@ class Battle:
             return False
         deck = self.__current_deck()
         if attack_index >= 0 and attack_index < len(deck.active[0].active_card().attacks):
-            active_count =   sum(deck.active[0].energies.values())
-            required_count = sum(deck.active[0].active_card().attacks[attack_index].energy_cost.values())
-            if required_count > active_count:
+            attack = deck.active[0].active_card().attacks[attack_index]
+            if not deck.active[0].energies.at_least_as_big(attack.energy_cost):
                 return False
-            for energy, cost in deck.active[0].active_card().attacks[attack_index].energy_cost.items():
-                if not energy == EnergyType.COLORLESS and (not energy in deck.active[0].energies or cost > deck.active[0].energies[energy]):
-                    return False
-            self.__defending_deck().take_damage(deck.active[0].active_card().attacks[attack_index].base_damage, deck.active[0].active_card().get_energy_type())
+            self.__defending_deck().take_damage(attack.base_damage, deck.active[0].active_card().get_energy_type())
             if self.__defending_deck().active[0].is_knocked_out():
                 if self.next_move_team1:
                     self.team1_points += 1 if self.__defending_deck().active[0].active_card().level <= 100 else 2
@@ -578,9 +553,8 @@ class Battle:
         if 'select' in actions:
             if 'new_active' in actions:
                 deck = self.__current_deck()
-                if self.__verify_active_index(index, deck):
-                    deck.replace_starter(index)
-                    return True
+                if self.__verify_bench_index(index, deck):
+                    return deck.replace_starter(index)
         return False
 
     def place_energy(self, active_index:int) -> bool:
@@ -623,7 +597,7 @@ class Battle:
     def __could_retreat(self) -> bool:
         deck = self.__current_deck()
         return not self.replace_knocked_out and self.__battle_going() and not self.turn.retreated and \
-               sum(deck.active[0].energies.values()) >= deck.active[0].active_card().retreat_cost
+               deck.active[0].energies.size() >= deck.active[0].active_card().retreat_cost
     
     def __possible_evolutions(self) -> list[tuple[PokemonCard,ActivePokemon]]:
         if not self.__battle_going() or self.replace_knocked_out:
@@ -640,15 +614,8 @@ class Battle:
         if not self.replace_knocked_out and self.__battle_going():
             deck = self.__current_deck()
             for attack_index in range(len(deck.active[0].active_card().attacks)):
-                active_count   = sum(deck.active[0].energies.values())
-                required_count = sum(deck.active[0].active_card().attacks[attack_index].energy_cost.values())
-                if required_count <= active_count:
-                    enough = True
-                    for energy, cost in deck.active[0].active_card().attacks[attack_index].energy_cost.items():
-                        if not energy == EnergyType.COLORLESS and (energy not in deck.active[0].energies or cost > deck.active[0].energies[energy]):
-                            enough = False
-                    if enough:
-                        return True
+                if deck.active[0].energies.at_least_as_big(deck.active[0].active_card().attacks[attack_index].energy_cost):
+                    return True
         return False
 
     def available_actions(self) -> list[str]:

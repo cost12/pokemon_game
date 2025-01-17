@@ -1,6 +1,6 @@
 from main.pokemon_battle import Battle, OwnDeckView, OpponentDeckView, get_opponent_deck_view, get_own_deck_view
 from main.print_visualizer import visualize_own_deck, visualize_opponent_deck, visualize_active_pokemon, visualize_card
-from main.pokemon_types import EnergyType
+from main.pokemon_types import EnergyType, EnergyContainer
 
 def battle_control(battle:Battle, controller1:'BattleController', controller2:'BattleController') -> None:
     """Controls the flow and inputs to a battle
@@ -203,13 +203,13 @@ class CommandLineBattleController(BattleController):
                         active_index = int(tokens[1])
                     except ValueError:
                         return False, "retreat", "first arg is int"
-                    energies = list[EnergyType]()
+                    energies = EnergyContainer()
                     for token in tokens[2:]:
                         if token.upper() in EnergyType:
-                            energies.append(token)
+                            energies = energies.add_energy(EnergyType[token])
                         else:
                             return False, "retreat", f"invalid energy type: {token}"
-                    return True, "retreat", (active_index, tuple(energies))
+                    return True, "retreat", (active_index, energies)
                 return False, "retreat", "requires at least 2 arguments"
             case "attack":
                 if len(tokens) == 2:

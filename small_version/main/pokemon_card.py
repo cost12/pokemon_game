@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from frozendict import frozendict
 
-from main.pokemon_types import EnergyType, PokemonType, weakness, resistance, energy_type
+from main.pokemon_types import EnergyType, PokemonType, EnergyContainer, weakness, resistance, energy_type
 
 @dataclass(frozen=True)
 class Ability:
@@ -13,7 +13,7 @@ class Ability:
 class Attack:
     name:str
     base_damage:int
-    energy_cost:frozendict[EnergyType,int]
+    energy_cost:EnergyContainer
     attack_type:PokemonType
     text:str=''
     effect:str=''

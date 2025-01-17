@@ -1,5 +1,5 @@
 from main.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
-from main.pokemon_types import EnergyType, PokemonType
+from main.pokemon_types import EnergyType, PokemonType, EnergyContainer
 from main.pokemon_card import Pokemon, Attack, Ability
 
 from frozendict import frozendict
@@ -14,11 +14,7 @@ def test_generate_attacks():
         assert attack.base_damage > 0
         assert isinstance(attack.text, str)
         assert isinstance(attack.effect, str)
-        assert isinstance(attack.energy_cost, frozendict)
-        for energy, cost in attack.energy_cost.items():
-            assert isinstance(energy, EnergyType)
-            assert isinstance(cost, int)
-            assert cost >= 0
+        assert isinstance(attack.energy_cost, EnergyContainer)
 
 def test_generate_pokemon():
     pokemons = generate_pokemon()

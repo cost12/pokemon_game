@@ -1,22 +1,22 @@
 from main.pokemon_card import Attack, Pokemon, PokemonCard
-from main.pokemon_types import PokemonType, EnergyType
+from main.pokemon_types import PokemonType, EnergyType, EnergyContainer
 
 from frozendict import frozendict
 
 def generate_attacks() -> dict[str,Attack]:
-    vine_whip     = Attack('Vine Whip',      40, frozendict({EnergyType.COLORLESS:1,EnergyType.GRASS:1}), PokemonType.GRASS)
-    razor_leaf    = Attack('Razor Leaf',     60, frozendict({EnergyType.COLORLESS:2,EnergyType.GRASS:1}), PokemonType.GRASS)
-    giant_bloom   = Attack('Giant Bloom',    80, frozendict({EnergyType.COLORLESS:2,EnergyType.GRASS:2}), PokemonType.GRASS)
-    ember         = Attack('Ember',          30, frozendict({EnergyType.FIRE: 1}),                        PokemonType.FIRE)
-    fire_claws    = Attack('Fire Claws',     60, frozendict({EnergyType.FIRE:1, EnergyType.COLORLESS:2}), PokemonType.FIRE)
-    slash         = Attack('Slash',          60, frozendict({EnergyType.FIRE:1, EnergyType.COLORLESS:2}), PokemonType.FIRE)
-    fire_spin     = Attack('Fire Spin',     150, frozendict({EnergyType.FIRE:2, EnergyType.COLORLESS:2}), PokemonType.FIRE)
-    crimson_storm = Attack('Crimson Storm', 200, frozendict({EnergyType.FIRE:2, EnergyType.COLORLESS:2}), PokemonType.FIRE)
-    water_gun     = Attack('Water Gun',      20, frozendict({EnergyType.WATER:1}),                        PokemonType.WATER)
-    wave_splash   = Attack('Wave Splash',    40, frozendict({EnergyType.WATER:1,EnergyType.COLORLESS:1}), PokemonType.WATER)
-    surf          = Attack('Surf',           40, frozendict({EnergyType.WATER:1,EnergyType.COLORLESS:1}), PokemonType.WATER)
-    hydro_pump    = Attack('Hydro Pump',     80, frozendict({EnergyType.WATER:2,EnergyType.COLORLESS:1}), PokemonType.WATER)
-    hydro_bazooka = Attack('Hydro Bazooka', 100, frozendict({EnergyType.WATER:2,EnergyType.COLORLESS:1}), PokemonType.WATER)
+    vine_whip     = Attack('Vine Whip',      40, EnergyContainer(frozendict({EnergyType.COLORLESS:1,EnergyType.GRASS:1})), PokemonType.GRASS)
+    razor_leaf    = Attack('Razor Leaf',     60, EnergyContainer(frozendict({EnergyType.COLORLESS:2,EnergyType.GRASS:1})), PokemonType.GRASS)
+    giant_bloom   = Attack('Giant Bloom',    80, EnergyContainer(frozendict({EnergyType.COLORLESS:2,EnergyType.GRASS:2})), PokemonType.GRASS)
+    ember         = Attack('Ember',          30, EnergyContainer(frozendict({EnergyType.FIRE: 1})),                        PokemonType.FIRE)
+    fire_claws    = Attack('Fire Claws',     60, EnergyContainer(frozendict({EnergyType.FIRE:1, EnergyType.COLORLESS:2})), PokemonType.FIRE)
+    slash         = Attack('Slash',          60, EnergyContainer(frozendict({EnergyType.FIRE:1, EnergyType.COLORLESS:2})), PokemonType.FIRE)
+    fire_spin     = Attack('Fire Spin',     150, EnergyContainer(frozendict({EnergyType.FIRE:2, EnergyType.COLORLESS:2})), PokemonType.FIRE)
+    crimson_storm = Attack('Crimson Storm', 200, EnergyContainer(frozendict({EnergyType.FIRE:2, EnergyType.COLORLESS:2})), PokemonType.FIRE)
+    water_gun     = Attack('Water Gun',      20, EnergyContainer(frozendict({EnergyType.WATER:1})),                        PokemonType.WATER)
+    wave_splash   = Attack('Wave Splash',    40, EnergyContainer(frozendict({EnergyType.WATER:1,EnergyType.COLORLESS:1})), PokemonType.WATER)
+    surf          = Attack('Surf',           40, EnergyContainer(frozendict({EnergyType.WATER:1,EnergyType.COLORLESS:1})), PokemonType.WATER)
+    hydro_pump    = Attack('Hydro Pump',     80, EnergyContainer(frozendict({EnergyType.WATER:2,EnergyType.COLORLESS:1})), PokemonType.WATER)
+    hydro_bazooka = Attack('Hydro Bazooka', 100, EnergyContainer(frozendict({EnergyType.WATER:2,EnergyType.COLORLESS:1})), PokemonType.WATER)
     attacks = {
         vine_whip.name:     vine_whip,
         razor_leaf.name:    razor_leaf,

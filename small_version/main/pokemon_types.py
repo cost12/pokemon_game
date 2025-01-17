@@ -149,3 +149,35 @@ class EnergyContainer:
             energies[energy] -= 1
             return EnergyContainer(frozendict(energies))
         raise ValueError
+    
+    def remove_energies(self, energies:'EnergyContainer') -> 'EnergyContainer':
+        """Removes one energy container from another
+
+        :param energies: The energies to remove from the container
+        :type energies: EnergyContainer
+        :return: The new container with the energies removed
+        :rtype: EnergyContainer
+        :raises ValueError: When an energy can't be removed
+        """
+        new_energies = dict(self.energies)
+        for energy, count in energies.energies.items():
+            if energy in new_energies and count <= new_energies[energy]:
+                new_energies[energy] -= count
+            else:
+                raise ValueError
+        return EnergyContainer(frozendict(new_energies))
+    
+    def at_least_as_big(self, energies:'EnergyContainer', ignore_colorless:bool=True) -> bool:
+        """Determines whether this EnergyContainer holds at least as many energies of each type as another
+
+        :param energies: The EnergyContainer to compare with
+        :type energies: EnergyContainer
+        :param ignore_colorless: Whether colorless energies should be ignored when comparing types of energy, optional
+        :type energies: bool
+        :return: True if this EnergyContainer has at least as many energies of each type as energies, False otherwise
+        :rtype: bool
+        """
+        for energy, count in energies.energies.items():
+            if count > self.size_of(energy) and (not ignore_colorless or not energy == EnergyType.COLORLESS):
+                return False
+        return self.size() >= energies.size()
