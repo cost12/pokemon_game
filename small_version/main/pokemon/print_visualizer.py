@@ -1,13 +1,13 @@
 from typing import Any
 
-from main.pokemon_types import EnergyContainer
-from main.pokemon_card import PokemonCard, Attack, stage_to_str
-from main.pokemon_battle import ActivePokemon, OwnDeckView, OpponentDeckView
+from pokemon.pokemon_types import EnergyContainer
+from pokemon.pokemon_card import PokemonCard, Attack, stage_to_str
+from pokemon.pokemon_battle import ActivePokemon, OwnDeckView, OpponentDeckView
 
 def visualize_energies(energy_container:EnergyContainer, indent:str="") -> None:
-    print(f"{indent}",sep='')
+    print(f"{indent}",end='')
     for energy, count in energy_container.energies.items():
-        print(f"{energy.name}: {count} ",sep='')
+        print(f"{energy.name}: {count} ",end='')
     print("")
 
 def visualize_attack(attack:Attack, indent:str="") -> None:
@@ -20,14 +20,14 @@ def visualize_attack(attack:Attack, indent:str="") -> None:
 def visualize_active_pokemon(pokemon:ActivePokemon, indent:str="") -> None:
     print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().name()} {pokemon.hp()}/{pokemon.active_card().hit_points} HP")
     if not pokemon.active_card().is_basic():
-        print(f"{indent}Evolves from {pokemon.active_card().evolves_from().name()}")
+        print(f"{indent}Evolves from {pokemon.active_card().evolves_from().name}")
     i=0
     for attack in pokemon.active_card().attacks:
-        visualize_attack(attack,f"{indent}[{i}]")
+        visualize_attack(attack,f"{indent}[{i}] ")
         i+=1
     print(f"{indent}Retreat: {pokemon.active_card().retreat_cost}")
-    print(f"{indent}Weakness: {pokemon.active_card().get_weakness().name}")
-    print(f"{indent}Resistance: {pokemon.active_card().get_resistance().name}")
+    print(f"{indent}Weakness: {pokemon.active_card().get_weakness().name if pokemon.active_card().get_weakness() is not None else ""}")
+    print(f"{indent}Resistance: {pokemon.active_card().get_resistance().name if pokemon.active_card().get_resistance() is not None else ""}")
     visualize_energies(pokemon.energies, f"{indent}Energy: ")
 
 def visualize_card(card:PokemonCard, indent:str="") -> None:
@@ -36,11 +36,11 @@ def visualize_card(card:PokemonCard, indent:str="") -> None:
         print(f"{indent}Evolves from {card.evolves_from().name}")
     i=0
     for attack in card.attacks:
-        visualize_attack(attack, f"{indent}[{i}]")
+        visualize_attack(attack, f"{indent}[{i}] ")
         i+=1
     print(f"{indent}Retreat: {card.retreat_cost}")
-    print(f"{indent}Weakness: {card.get_weakness().name}")
-    print(f"{indent}Resistance: {card.get_resistance().name}")
+    print(f"{indent}Weakness: {card.get_weakness().name if card.get_weakness() is not None else ""}")
+    print(f"{indent}Resistance: {card.get_resistance().name if card.get_resistance() is not None else ""}")
 
 def visualize_active_pokemon_quick(pokemon:ActivePokemon, indent:str="") -> None:
     print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().name()} {pokemon.hp()} HP")

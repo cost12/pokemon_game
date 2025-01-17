@@ -1,6 +1,6 @@
-from main.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
-from main.pokemon_types import EnergyType, PokemonType, EnergyContainer
-from main.pokemon_card import Pokemon, Attack, Ability
+from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
+from pokemon.pokemon_types import EnergyType, PokemonType, EnergyContainer
+from pokemon.pokemon_card import Pokemon, Attack, Ability
 
 from frozendict import frozendict
 

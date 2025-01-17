@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from frozendict import frozendict
 
-from main.pokemon_types import EnergyType, PokemonType, EnergyContainer, weakness, resistance, energy_type
+from pokemon.pokemon_types import EnergyType, PokemonType, EnergyContainer, weakness, resistance, energy_type
 
 @dataclass(frozen=True)
 class Ability:

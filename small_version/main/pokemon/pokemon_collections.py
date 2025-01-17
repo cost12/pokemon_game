@@ -1,5 +1,5 @@
-from main.pokemon_card import Attack, Pokemon, PokemonCard
-from main.pokemon_types import PokemonType, EnergyType, EnergyContainer
+from pokemon.pokemon_card import Attack, Pokemon, PokemonCard
+from pokemon.pokemon_types import PokemonType, EnergyType, EnergyContainer
 
 from frozendict import frozendict
 

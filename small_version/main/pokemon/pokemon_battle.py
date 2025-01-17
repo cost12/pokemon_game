@@ -1,6 +1,6 @@
-from main.pokemon_card import PokemonCard
-from main.pokemon_types import EnergyType, Condition, EnergyContainer
-import main.utils as utils
+from pokemon.pokemon_card import PokemonCard
+from pokemon.pokemon_types import EnergyType, Condition, EnergyContainer
+import pokemon.utils as utils
 
 import random
 from frozendict import frozendict
@@ -106,7 +106,7 @@ class ActivePokemon:
         :return: True if the card can retreat, false otherwise
         :rtype: bool
         """
-        return self.energies.at_least_as_big(energies)
+        return energies.size() == self.energies.size() and self.energies.at_least_as_big(energies)
 
     def take_damage(self, amount:int, damage_type:EnergyType) -> 'ActivePokemon':
         total = amount
@@ -258,10 +258,10 @@ class DeckSetup:
         :rtype: bool
         """
         if active_index == 0: return False
-        temp = self.active[active_index].retreat(energies)
+        temp = self.active[0].retreat(energies)
         self.energy_discard = self.energy_discard.add_energies(energies)
-        self.active[active_index] = self.active[0]
-        self.active[0] = temp
+        self.active[0] = self.active[active_index]
+        self.active[active_index] = temp
         return True
 
     def take_damage(self, amount:int, damage_type:EnergyType) -> None:
@@ -597,7 +597,7 @@ class Battle:
     def __could_retreat(self) -> bool:
         deck = self.__current_deck()
         return not self.replace_knocked_out and self.__battle_going() and not self.turn.retreated and \
-               deck.active[0].energies.size() >= deck.active[0].active_card().retreat_cost
+               deck.active[0].energies.size() >= deck.active[0].active_card().retreat_cost and len(deck.active) > 1
     
     def __possible_evolutions(self) -> list[tuple[PokemonCard,ActivePokemon]]:
         if not self.__battle_going() or self.replace_knocked_out:

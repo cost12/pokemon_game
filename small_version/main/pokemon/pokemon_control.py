@@ -1,6 +1,6 @@
-from main.pokemon_battle import Battle, OwnDeckView, OpponentDeckView, get_opponent_deck_view, get_own_deck_view
-from main.print_visualizer import visualize_own_deck, visualize_opponent_deck, visualize_active_pokemon, visualize_card
-from main.pokemon_types import EnergyType, EnergyContainer
+from pokemon.pokemon_battle import Battle, OwnDeckView, OpponentDeckView, get_opponent_deck_view, get_own_deck_view
+from pokemon.print_visualizer import visualize_own_deck, visualize_opponent_deck, visualize_active_pokemon, visualize_card
+from pokemon.pokemon_types import EnergyType, EnergyContainer
 
 def battle_control(battle:Battle, controller1:'BattleController', controller2:'BattleController') -> None:
     """Controls the flow and inputs to a battle
@@ -107,7 +107,7 @@ class CommandLineBattleController(BattleController):
         tokens = input_str.split(" ")
         command_tokens = command.split(" ")
         if not len(tokens) == len(command_tokens) + 1:
-            return False
+            return False, -1
         for i in range(len(command_tokens)):
             if not tokens[i] == command_tokens[i]:
                 return False, -1

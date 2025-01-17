@@ -1,9 +1,9 @@
-from main.user import User
-from main.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
-from main.pokemon_battle import Deck, Battle
-from main.pokemon_types import EnergyType
-from main.pokemon_control import battle_control, CommandLineBattleController
-import main.utils as utils
+from pokemon.user import User
+from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
+from pokemon.pokemon_battle import Deck, Battle
+from pokemon.pokemon_types import EnergyType
+from pokemon.pokemon_control import battle_control, CommandLineBattleController
+import pokemon.utils as utils
 
 def main():
     # generate pokemon/cards/data
