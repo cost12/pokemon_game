@@ -9,7 +9,7 @@ class User:
 
     def __init__(self, username:str, initial_cards:list[PokemonCard]|None=None):
         self.username = username
-        self.cards = dict[PokemonCard,int]() if initial_cards is None else initial_cards
+        self.cards = dict[PokemonCard,int]() if initial_cards is None else utils.tuple_to_counts(initial_cards)
         self.decks = dict[str,Deck]()
         self.controller = BattleController()
 
@@ -30,7 +30,17 @@ class User:
         :param cards: The cards to add
         :type cards: list[PokemonCard]
         """
-        map(self.add_card, cards)
+        for card in cards:
+            self.add_card(card)
+
+    def number_of_cards(self) -> int:
+        return sum(self.cards.values())
+    
+    def number_of_decks(self) -> int:
+        return len(self.decks)
+    
+    def number_of_copies(self, card:PokemonCard) -> int:
+        return self.cards[card] if card in self.cards else 0
 
     def add_deck(self, deck:Deck) -> bool:
         """Checks whether a deck can be created with the user's cards. Returns true and adds the deck if it can be made, returns false otherwise
@@ -42,7 +52,7 @@ class User:
         """
         counts = utils.tuple_to_counts(deck.get_cards())
         for card in counts.keys():
-            if counts[card] > self.cards[card]:
+            if counts[card] > self.number_of_copies(card):
                 return False
         self.decks[deck.name] = deck
         return True
