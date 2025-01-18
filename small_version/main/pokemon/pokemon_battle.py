@@ -147,12 +147,9 @@ class Deck:
         return self.cards
 
 class DeckSetup:
-    BENCH_SIZE = 3
-    INITIAL_HAND_SIZE = 5
-    MAX_HAND_SIZE = 10
-    FUTURE_ENERGIES = 1
 
-    def __init__(self, cards:list[PokemonCard], energies:list[EnergyType]):
+    def __init__(self, cards:list[PokemonCard], energies:list[EnergyType], *, 
+                 bench_size:int=3, initial_hand_size:int=5, max_hand_size:int=10, future_energies:int=1):
         """Represents the way a deck is set during a battle
 
         :param cards: The pokemon cards in the deck
@@ -160,6 +157,14 @@ class DeckSetup:
         :param energies: The available energy types to be used
         :type energies: list[EnergyType]
         """
+        assert max_hand_size >= initial_hand_size
+        assert initial_hand_size <= len(cards)
+        assert bench_size >= 0 and initial_hand_size >= 0 and max_hand_size >= 0 and future_energies >= 0
+        self.bench_size = bench_size
+        self.initial_hand_size = initial_hand_size
+        self.max_hand_size = max_hand_size
+        self.future_energies = future_energies
+
         self.energies = list[EnergyType](energies)
 
         self.hand           = list[PokemonCard]()
@@ -168,7 +173,6 @@ class DeckSetup:
         self.energy_discard = EnergyContainer()
         self.deck           = list[PokemonCard]()
         self.next_energies  = list[EnergyType]()
-        self.used_supporter = False
         self.__setup(cards)
 
     def __setup(self, cards:list[PokemonCard]):
@@ -182,10 +186,10 @@ class DeckSetup:
         self.hand.append(random.choice(basic))
         cards.remove(self.hand[0])
         random.shuffle(cards)
-        self.hand.extend(cards[0:self.INITIAL_HAND_SIZE-1])
-        self.deck.extend(cards[self.INITIAL_HAND_SIZE-1:])
+        self.hand.extend(cards[0:self.initial_hand_size-1])
+        self.deck.extend(cards[self.initial_hand_size-1:])
 
-        for _ in range(self.FUTURE_ENERGIES):
+        for _ in range(self.future_energies):
             self.__get_energy()
 
     def __get_energy(self) -> None:
@@ -200,9 +204,8 @@ class DeckSetup:
         :type get_energy: bool, optional
         :raises NoCardsToDrawException: When there are no cards left in the deck
         """
-        self.used_supporter = False
         if get_energy:
-            self.__get_energy()
+            self.__get_energy()   
         self.draw_card()
 
     def between_turns(self) -> None:
@@ -213,15 +216,17 @@ class DeckSetup:
         for i in range(len(self.active)):
             self.active[i] = self.active[i].end_turn()
 
-    def draw_card(self) -> None:
+    def draw_card(self) -> bool:
         """Updates the deck for a drawn card
 
-        :raises NoCardsToDrawException: When there are no cards left in the deck
+        :return: True if a card is drawn, false otherwise
+        :rtype: bool
         """
-        if len(self.deck) == 0 or len(self.hand) == self.MAX_HAND_SIZE:
-            raise NoCardsToDrawException
+        if len(self.deck) == 0 or len(self.hand) >= self.max_hand_size:
+            return False
         self.hand.append(self.deck[0])
         self.deck = self.deck[1:]
+        return True
 
     def play_card_from_hand(self, hand_index:int):
         """Updates the deck to represent a card from the hand being used
@@ -299,7 +304,7 @@ class DeckSetup:
         :return: True if the card can be placed on the bench, false otherwise
         :rtype: bool
         """
-        if self.hand[hand_index].is_basic() and len(self.active) - 1 < self.BENCH_SIZE:
+        if self.hand[hand_index].is_basic() and len(self.active) - 1 < self.bench_size:
             self.active.append(ActivePokemon((self.hand[hand_index],)))
             self.hand.pop(hand_index)
             return True

@@ -1,4 +1,4 @@
-from pokemon.pokemon_battle import ActivePokemon
+from pokemon.pokemon_battle import ActivePokemon, DeckSetup, Deck
 from pokemon.pokemon_types import Condition, EnergyContainer, EnergyType
 from pokemon.pokemon_card import PokemonCard
 from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
@@ -178,3 +178,179 @@ def test_knocked_out():
     new_active = active.take_damage(70, EnergyType.GRASS)
     assert new_active.is_knocked_out()
 # END OF TESTING FOR ActivePokemon
+
+
+# TESTING FOR DeckSetup
+def get_deck():
+    cards = get_cards()
+    deck_cards = [
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Charmander'],
+        cards['Charmeleon'],
+        cards['Charizard'],
+        cards['Charmander'],
+        cards['Charmeleon'],
+        cards['Charizard']
+    ]
+    return Deck("name", deck_cards, (EnergyType.GRASS,EnergyType.FIRE))
+
+def place_basic(deck:DeckSetup) -> bool:
+    for card in deck.hand:
+        if card.is_basic():
+            deck.hand.remove(card)
+            deck.active.append(ActivePokemon(card))
+            return True
+    for card in deck.deck:
+        if card.is_basic():
+            deck.deck.remove(card)
+            deck.active.append(ActivePokemon(card))
+            return True
+    return False
+
+def place_evolution_in_hand(deck:DeckSetup, active_index:int, hand_index:int) -> bool:
+    for card in deck.hand:
+        if card.evolves_from(deck.active[active_index]):
+            deck.hand.remove(card)
+            deck.hand.insert(hand_index, card)
+            return True
+    for card in deck.deck:
+        if card.evolves_from(deck.active[active_index]):
+            deck.deck.remove(card)
+            deck.hand.insert(hand_index, card)
+            return True
+    return False
+
+def evolve(deck:DeckSetup, active_index:int) -> bool:
+    for card in deck.hand:
+        if card.evolves_from(deck.active[active_index]):
+            deck.hand.remove(card)
+            cards = deck.active[active_index].get_cards()
+            cards.insert(0, card)
+            damage = deck.active[active_index].damage
+            energies = deck.active[active_index].energies
+            deck.active[active_index] = ActivePokemon(tuple(cards),damage=damage, energies=energies)
+            return True
+    for card in deck.deck:
+        if card.evolves_from(deck.active[active_index]):
+            deck.deck.remove(card)
+            cards = deck.active[active_index].get_cards()
+            cards.insert(0, card)
+            damage = deck.active[active_index].damage
+            energies = deck.active[active_index].energies
+            deck.active[active_index] = ActivePokemon(tuple(cards),damage=damage, energies=energies)
+            return True
+    return False
+
+def set_can_evolve(deck:DeckSetup, active_index:int, can_evolve:bool):
+    cards = deck.active[active_index].pokemon_cards
+    damage = deck.active[active_index].damage
+    condition = deck.active[active_index].condition
+    energies = deck.active[active_index].energies
+    deck.active[active_index] = ActivePokemon(cards, can_evolve, damage, condition, energies)
+
+def place_energy(deck:DeckSetup, active_index:int, energy:EnergyType):
+    cards = deck.active[active_index].pokemon_cards
+    can_evolve = deck.active[active_index].can_evolve_this_turn
+    damage = deck.active[active_index].damage
+    condition = deck.active[active_index].condition
+    energies = deck.active[active_index].energies.add_energy(energy)
+    deck.active[active_index] = ActivePokemon(cards, can_evolve, damage, condition, energies)
+
+def same_cards(cards:list[PokemonCard], deck:DeckSetup):
+    deck_cards = []
+    deck_cards.extend(deck.deck)
+    deck_cards.extend(deck.hand)
+    deck_cards.extend(deck.discard)
+    for active in deck.active:
+        deck_cards.extend(active.get_cards())
+    for i in range(len(cards)):
+        if cards[i] in deck_cards:
+            deck_cards.remove(cards[i])
+        else:
+            return False
+    return len(deck_cards) == 0
+
+def test_setup():
+    deck = get_deck()
+    deck_setup = DeckSetup(deck.cards, deck.energies)
+    size = len(deck.cards)
+
+    assert len(deck_setup.next_energies) == deck_setup.future_energies
+    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+    assert len(deck_setup.hand) + len(deck_setup.deck) == size
+    assert sum(1 for card in deck_setup.hand if card.is_basic()) >= 1
+
+def test_get_energy():
+    deck = get_deck()
+    deck_setup = DeckSetup(deck.cards, deck.energies)
+    for _ in range(10):
+        assert deck_setup.__get_energy() in deck.energies
+
+def test_start_turn():
+    deck = get_deck()
+    deck_setup = DeckSetup(deck.cards, deck.energies)
+    # no energy
+    deck_setup.start_turn(False)
+    assert len(deck_setup.next_energies) == deck_setup.future_energies
+    assert len(deck_setup.hand) - 1 == deck_setup.initial_hand_size
+    # yes energy
+    deck_setup = DeckSetup(deck.cards, deck.energies)
+    deck_setup.start_turn()
+    assert len(deck_setup.next_energies) - 1 == deck_setup.future_energies
+    assert len(deck_setup.hand) - 1 == deck_setup.initial_hand_size
+    # hand full
+    deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=5, max_hand_size=5)
+    deck_setup.start_turn()
+    assert len(deck_setup.next_energies) - 1 == deck_setup.future_energies
+    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+    # deck empty
+    deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=len(deck.cards))
+    deck_setup.start_turn()
+    assert len(deck_setup.next_energies) - 1 == deck_setup.future_energies
+    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+
+def test_between_turns():
+    pass
+
+def test_end_turn():
+    pass
+
+def test_draw_card():
+    deck = get_deck()
+    deck_setup = DeckSetup(deck.cards, deck.energies)
+    # normal
+    deck_setup = DeckSetup(deck.cards, deck.energies)
+    assert deck_setup.draw_card()
+    assert len(deck_setup.hand) - 1 == deck_setup.initial_hand_size
+    # hand full
+    deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=5, max_hand_size=5)
+    assert not deck_setup.draw_card()
+    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+    # deck empty
+    deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=len(deck.cards))
+    assert not deck_setup.start_turn()
+    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+
+def test_play_card_from_hand():
+    deck = get_deck()
+    deck_setup = DeckSetup(deck.cards, deck.energies)
+    deck_setup.play_card_from_hand(0)
+    assert same_cards(deck.cards, deck_setup)
+    assert len(deck_setup.hand) - 1 == deck_setup.initial_hand_size
+    assert len(deck_setup.discard) == 1
+
+def test_evolve():
+    # TO TEST: figure out where error checking for evolving should go
+    deck = get_deck()
+    deck_setup = DeckSetup(deck.cards, deck.energies)
+
+    place_basic(deck_setup)
+    place_evolution_in_hand(deck_setup, 0, 0)
+    pass
+
+# END OF TESTING FOR DeckSetup
