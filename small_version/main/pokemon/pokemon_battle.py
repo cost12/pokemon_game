@@ -16,7 +16,7 @@ class CantRetreatException(Exception):
 @dataclass(frozen=True)
 class ActivePokemon:
     pokemon_cards:tuple[PokemonCard]
-    can_evolve_this_turn:bool=False
+    turns_in_active:int = 0
     damage:int=0
     condition:Condition=field(default=Condition.NONE)
     energies:EnergyContainer=field(default=EnergyContainer())
@@ -34,24 +34,10 @@ class ActivePokemon:
 
         :param card: The card to evolve to
         :type card: PokemonCard
-        :raises CantEvolveException: When the active pokemon does not evolve into the card
-        :return: None if the card can't evolve, or the evolved card
-        :rtype: ActivePokemon|None
+        :return: The evolved card
+        :rtype: ActivePokemon
         """
-        if self.can_evolve(card):
-            return ActivePokemon((card, *self.pokemon_cards), False, self.damage, Condition.NONE, self.energies)
-        else:
-            raise CantEvolveException()
-        
-    def can_evolve(self, card:PokemonCard) -> bool:
-        """Checks whether the active card can evolve into the given card
-
-        :param card: The card to evolve into
-        :type card: PokemonCard
-        :return: True if the evolution is possible
-        :rtype: bool
-        """
-        return self.can_evolve_this_turn and card.evolves_from() == self.active_card().pokemon
+        return ActivePokemon((card, *self.pokemon_cards), 0, self.damage, Condition.NONE, self.energies)
 
     def hp(self) -> int:
         """The remaining health of the pokemon
@@ -67,7 +53,7 @@ class ActivePokemon:
         :return: The ActivePokemon after the turn ends
         :rtype: ActivePokemon
         """
-        return ActivePokemon(self.pokemon_cards, True, self.damage, self.condition, self.energies)
+        return ActivePokemon(self.pokemon_cards, self.turns_in_active+1, self.damage, self.condition, self.energies)
 
     def between_turns(self) -> 'ActivePokemon':
         return self
@@ -80,30 +66,17 @@ class ActivePokemon:
         :return: The ActivePokemon after the energy is attached
         :rtype: ActivePokemon
         """
-        return ActivePokemon(self.pokemon_cards, self.can_evolve_this_turn, self.damage, self.condition, self.energies.add_energy(energy))
+        return ActivePokemon(self.pokemon_cards, self.turns_in_active, self.damage, self.condition, self.energies.add_energy(energy))
 
     def retreat(self, energies:EnergyContainer) -> 'ActivePokemon':
         """Discards the required energies and returns true if it can retreat, otherwise returns false
 
         :param energies: The energies to discard
         :type energies: dict[EnergyType,int]
-        :raises CantRetreatException: When the pokemon can't retreat by discarding the given energies
         :return: The resulting ActivePokemon
         :rtype: ActivePokemon
         """
-        if self.can_retreat(energies):
-            return ActivePokemon(self.pokemon_cards, self.can_evolve_this_turn, self.damage, self.condition, self.energies.remove_energies(energies))
-        raise CantRetreatException()
-
-    def can_retreat(self, energies:EnergyContainer) -> bool:
-        """Determines weather the active pokemon can retreat for the given cost. Checks conditions, retreat cost, and energy types
-
-        :param energies: The energies to discard in order to retreat, must have the same energies attached to the card
-        :type energies: dict[EnergyType,int]
-        :return: True if the card can retreat, false otherwise
-        :rtype: bool
-        """
-        return energies.size() == self.active_card().retreat_cost and self.energies.at_least_as_big(energies)
+        return ActivePokemon(self.pokemon_cards, self.turns_in_active, self.damage, self.condition, self.energies.remove_energies(energies))
 
     def take_damage(self, amount:int, damage_type:EnergyType) -> 'ActivePokemon':
         total = amount
@@ -111,7 +84,7 @@ class ActivePokemon:
             total -= 20
         if damage_type == self.active_card().get_weakness():
             total += 20
-        return ActivePokemon(self.pokemon_cards, self.can_evolve_this_turn, self.damage + total, self.condition, self.energies)
+        return ActivePokemon(self.pokemon_cards, self.turns_in_active, self.damage + total, self.condition, self.energies)
     
     def is_knocked_out(self):
         return self.hp() <= 0
@@ -160,10 +133,10 @@ class DeckSetup:
         assert max_hand_size >= initial_hand_size
         assert initial_hand_size <= len(cards)
         assert bench_size >= 0 and initial_hand_size >= 0 and max_hand_size >= 0 and future_energies >= 0
-        self.bench_size = bench_size
-        self.initial_hand_size = initial_hand_size
-        self.max_hand_size = max_hand_size
-        self.future_energies = future_energies
+        self.BENCH_SIZE        = bench_size
+        self.INITIAL_HAND_SIZE = initial_hand_size
+        self.MAX_HAND_SIZE     = max_hand_size
+        self.FUTURE_ENERGIES   = future_energies
 
         self.energies = list[EnergyType](energies)
 
@@ -186,10 +159,10 @@ class DeckSetup:
         self.hand.append(random.choice(basic))
         cards.remove(self.hand[0])
         random.shuffle(cards)
-        self.hand.extend(cards[0:self.initial_hand_size-1])
-        self.deck.extend(cards[self.initial_hand_size-1:])
+        self.hand.extend(cards[0:self.INITIAL_HAND_SIZE-1])
+        self.deck.extend(cards[self.INITIAL_HAND_SIZE-1:])
 
-        for _ in range(self.future_energies):
+        for _ in range(self.FUTURE_ENERGIES):
             self.__get_energy()
 
     def __get_energy(self) -> None:
@@ -222,7 +195,7 @@ class DeckSetup:
         :return: True if a card is drawn, false otherwise
         :rtype: bool
         """
-        if len(self.deck) == 0 or len(self.hand) >= self.max_hand_size:
+        if len(self.deck) == 0 or len(self.hand) >= self.MAX_HAND_SIZE:
             return False
         self.hand.append(self.deck[0])
         self.deck = self.deck[1:]
@@ -296,26 +269,19 @@ class DeckSetup:
     def delete_energy(self) -> None:
         self.next_energies.pop(0)
 
-    def play_basic(self, hand_index:int) -> bool:
+    def play_basic(self, hand_index:int) -> None:
         """Plays a basic card from the hand to a new spot on the bench
 
         :param hand_index: The index of the card in the hand
         :type hand_index: int
-        :return: True if the card can be placed on the bench, false otherwise
-        :rtype: bool
         """
-        if self.hand[hand_index].is_basic() and len(self.active) - 1 < self.bench_size:
-            self.active.append(ActivePokemon((self.hand[hand_index],)))
-            self.hand.pop(hand_index)
-            return True
-        return False
+        self.active.append(ActivePokemon((self.hand[hand_index],)))
+        self.hand.pop(hand_index)
 
-    def replace_starter(self, active_index:int) -> bool:
+    def replace_starter(self, active_index:int) -> None:
         if active_index > 0:
             self.active[0] = self.active[active_index]
             self.active.pop(active_index)
-            return True
-        return False
 
 @dataclass(frozen=True)
 class OpponentDeckView:
@@ -370,14 +336,18 @@ class Turn:
 class Battle:
     """Represents a battle between two decks of cards
     """
-    DECK_SIZE:int = 20
-    DUPLICATE_LIMIT:int = 2
-    BASIC_REQUIRED:bool = True
-    POINTS_TO:int = 3
 
-    def __init__(self, deck1:Deck, deck2:Deck):
+    def __init__(self, deck1:Deck, deck2:Deck, *, 
+                 deck_size:int=20, duplicate_limit:int=2, basic_required:bool=True, points_to:int=3, turns_to_evolve:int=1):
+        assert deck_size > 0 and duplicate_limit >= 1 and points_to >= 1 and turns_to_evolve >= 0
         assert self.__deck_is_valid(deck1)
         assert self.__deck_is_valid(deck2)
+
+        self.DECK_SIZE       = deck_size
+        self.DUPLICATE_LIMIT = duplicate_limit
+        self.BASIC_REQUIRED  = basic_required
+        self.POINTS_TO       = points_to
+        self.TURNS_TO_EVOLVE = turns_to_evolve
 
         self.deck1 = DeckSetup(deck1.cards, deck1.energies)
         self.deck2 = DeckSetup(deck2.cards, deck2.energies)
@@ -488,50 +458,97 @@ class Battle:
         return self.deck1
 
     def play_card(self, hand_index:int) -> bool:
-        if not self.__battle_going():
-            return False
         return False
-
-    def play_basic(self, hand_index:int) -> bool:
+    
+    def can_play_basic(self, hand_index:int) -> bool:
         if not self.__battle_going() or self.replace_knocked_out:
             return False
         deck = self.__current_deck()
-        valid = self.__verify_basic_index(hand_index, deck)
-        if valid:
-            return deck.play_basic(hand_index)
+        return self.__verify_basic_index(hand_index, deck)
+
+    def could_play_basic(self) -> bool:
+        deck = self.__current_deck()
+        for card in deck.hand:
+            if self.can_play_basic(card):
+                return True
         return False
 
-    def evolve(self, hand_index:int, active_index:int) -> bool:
+    def play_basic(self, hand_index:int) -> bool:
+        deck = self.__current_deck()
+        if self.can_play_basic():
+            deck.play_basic(hand_index)
+            return True
+        return False
+    
+    def can_evolve(self, hand_index:int, active_index:int) -> bool:
         if not self.__battle_going() or self.replace_knocked_out:
             return False
         deck = self.__current_deck()
         valid1 = self.__verify_hand_index(hand_index, deck)
         valid2 = self.__verify_active_index(active_index, deck)
         if valid1 and valid2:
-            if deck.active[active_index].can_evolve(deck.hand[hand_index]):
-                deck.evolve(hand_index, active_index)
+            if deck.active[active_index].turns_in_active >= self.TURNS_TO_EVOLVE and \
+               deck.hand[hand_index].evolves_from() == deck.active[active_index].active_card().pokemon:
                 return True
         return False
 
-    def retreat(self, active_index:int, energies:EnergyContainer) -> bool:
-        if not self.__could_retreat():
+    def could_evolve(self) -> bool:
+        deck = self.__current_deck()
+        for hand_index in range(len(deck.hand)):
+            for active_index in range(len(deck.active)):
+                if self.can_evolve(hand_index, active_index):
+                    return True
+        return False
+
+    def evolve(self, hand_index:int, active_index:int) -> bool:
+        if self.can_evolve(hand_index, active_index):
+            deck = self.__current_deck()
+            deck.evolve(hand_index, active_index)
+            return True
+        return False
+
+    def can_retreat(self, active_index:int, energies:EnergyContainer) -> bool:
+        if not self.__battle_going() or self.replace_knocked_out:
             return False
         deck = self.__current_deck()
         valid = self.__verify_active_index(active_index, deck)
         if valid:
-            if deck.active[0].can_retreat(energies):
-                deck.retreat(active_index, energies)
+            if deck.active[0].active_card().retreat_cost == energies.size() and deck.active[0].energies.at_least_as_big(energies):
+                return True
+        return False
+
+    def could_retreat(self) -> bool:
+        if not self.__battle_going() or self.replace_knocked_out:
+            return False
+        deck = self.__current_deck()
+        return deck.active[0].active_card().retreat_cost <= deck.active[0].energies.size()
+
+    def retreat(self, active_index:int, energies:EnergyContainer) -> bool:
+        if self.can_retreat(active_index, energies):
+            deck = self.__current_deck()
+            deck.retreat(active_index, energies)
+            return True
+        return False
+
+    def can_attack(self, attack_index:int) -> bool:
+        if not self.replace_knocked_out and self.__battle_going():
+            deck = self.__current_deck()
+            if attack_index >= 0 and attack_index < len(deck.active[0].active_card().attacks):
+                return deck.active[0].energies.at_least_as_big(deck.active[0].active_card().attacks[attack_index].energy_cost)
+        return False
+
+    def could_attack(self) -> bool:
+        deck = self.__current_deck()
+        for attack_index in len(deck.active[0].active_card().attacks):
+            if self.can_attack(attack_index):
                 return True
         return False
 
     def attack(self, attack_index:int) -> bool:
-        if not self.__battle_going():
-            return False
         deck = self.__current_deck()
-        if attack_index >= 0 and attack_index < len(deck.active[0].active_card().attacks):
+        if self.can_attack(attack_index):
             attack = deck.active[0].active_card().attacks[attack_index]
-            if not deck.active[0].energies.at_least_as_big(attack.energy_cost):
-                return False
+
             self.__defending_deck().take_damage(attack.base_damage, deck.active[0].active_card().get_energy_type())
             if self.__defending_deck().active[0].is_knocked_out():
                 if self.next_move_team1:
@@ -546,29 +563,46 @@ class Battle:
         return False
 
     def use_ability(self, ability_index:int) -> bool:
-        if not self.__battle_going():
-            return False
+        return False
+
+    def can_select(self, index:int) -> bool:
+        deck = self.__current_deck()
+        return self.replace_knocked_out and self.__verify_bench_index(index, deck)
+
+    def could_select(self) -> bool:
+        deck = self.__current_deck()
+        for i in range(1, len(deck.active)):
+            if self.can_select(i):
+                return True
         return False
 
     def select(self, index:int) -> bool:
-        actions = self.available_actions()
-        if 'select' in actions:
-            if 'new_active' in actions:
-                deck = self.__current_deck()
-                if self.__verify_bench_index(index, deck):
-                    return deck.replace_starter(index)
+        if self.can_select(index):
+            deck = self.__current_deck()
+            deck.replace_starter(index)
+            return True
         return False
 
-    def place_energy(self, active_index:int) -> bool:
+    def can_place_energy(self, active_index:int) -> bool:
         if not self.__battle_going() and not self.replace_knocked_out:
             return False
         deck = self.__current_deck()
         valid = self.__verify_active_index(active_index, deck)
-        if valid:
-            if not self.turn.energy_used:
-                deck.attach_energy(active_index)
-                self.turn.energy_used = True
+        return valid and not self.turn.energy_used
+
+    def could_place_energy(self) -> bool:
+        deck = self.__current_deck()
+        for i in range(len(deck.active)):
+            if self.can_place_energy(i):
                 return True
+        return False
+
+    def place_energy(self, active_index:int) -> bool:
+        deck = self.__current_deck()
+        if self.can_place_energy(active_index):
+            deck.attach_energy(active_index)
+            self.turn.energy_used = True
+            return True
         return False
 
     def between_turns(self) -> None:
@@ -579,64 +613,40 @@ class Battle:
         self.__current_deck().start_turn(generate_energy)
         self.turn.energy_used = not generate_energy
 
+    def could_end_turn(self) -> bool:
+        return self.__battle_going()
+
     def end_turn(self) -> bool:
-        if not self.__battle_going():
-            return False
-        if not self.turn.energy_used:
-            self.__current_deck().delete_energy()
-        self.__current_deck().end_turn()
-        self.next_move_team1 = not self.next_move_team1
-        self.turn_number += 1
-        self.turn.reset()
-        self.between_turns()
-        self.start_turn()
-        return True
-    
-    def __valid_basic_indices(self) -> list[int]:
-        deck = self.__current_deck()
-        return [i for i in range(len(deck.hand)) if deck.hand[i].is_basic()]
-    
-    def __could_retreat(self) -> bool:
-        deck = self.__current_deck()
-        return not self.replace_knocked_out and self.__battle_going() and not self.turn.retreated and \
-               deck.active[0].energies.size() >= deck.active[0].active_card().retreat_cost and len(deck.active) > 1
-    
-    def __possible_evolutions(self) -> list[tuple[PokemonCard,ActivePokemon]]:
-        if not self.__battle_going() or self.replace_knocked_out:
-            return []
-        deck = self.__current_deck()
-        pairs = []
-        for card in deck.hand:
-            for active in deck.active:
-                if active.can_evolve(card):
-                    pairs.append((card,active))
-        return pairs
-
-    def __can_attack(self) -> bool:
-        if not self.replace_knocked_out and self.__battle_going():
-            deck = self.__current_deck()
-            for attack_index in range(len(deck.active[0].active_card().attacks)):
-                if deck.active[0].energies.at_least_as_big(deck.active[0].active_card().attacks[attack_index].energy_cost):
-                    return True
+        if self.could_end_turn():
+            if not self.turn.energy_used:
+                self.__current_deck().delete_energy()
+            self.__current_deck().end_turn()
+            self.next_move_team1 = not self.next_move_team1
+            self.turn_number += 1
+            self.turn.reset()
+            self.between_turns()
+            self.start_turn()
+            return True
         return False
-
+    
     def available_actions(self) -> list[str]:
         if not self.__battle_going():
             if not self.is_over():
                 return ['play']
             return []
-        if self.replace_knocked_out:
+        if self.could_select():
             return ['select', 'new_active']
         moves = []
-        if len(self.__valid_basic_indices()) > 0:
+        if self.could_play_basic():
             moves.append('play_basic')
-        if self.__could_retreat():
+        if self.could_retreat():
             moves.append('retreat')
-        if len(self.__possible_evolutions()) > 0:
+        if self.could_evolve():
             moves.append('evolve')
-        if self.__can_attack():
+        if self.could_attack():
             moves.append('attack')
-        if not self.turn.energy_used:
+        if self.could_place_energy():
             moves.append('place_energy')
-        moves.append('end_turn')
+        if self.could_end_turn():
+            moves.append('end_turn')
         return moves
