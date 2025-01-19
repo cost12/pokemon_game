@@ -8,3 +8,8 @@ Known Bugs/what to fix/implement next:
     5. retreating doesn't work
     6. knock outs/ replacing pokemon
     7. view score/ other match information
+
+Stuff to do:
+    1. Collection: like EnergyContainer but for generic type
+    2. active pokemon is none when knocked out
+    3. 
