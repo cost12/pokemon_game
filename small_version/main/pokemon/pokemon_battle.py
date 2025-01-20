@@ -260,7 +260,10 @@ class DeckSetup:
         self.discard.extend(self.active[active_index].get_cards())
         energies = self.active[active_index].get_energies()
         self.energy_discard = self.energy_discard.add_energies(energies)
-        self.active.pop(active_index)
+        if active_index == 0:
+            self.active[active_index] = None
+        else:
+            self.active.pop(active_index)
 
     def attach_energy(self, active_index:int) -> None:
         energy_type = self.next_energies.pop(0)
@@ -332,6 +335,7 @@ class Turn:
         self.used_supporter = False
         self.retreated = False
         self.energy_used = False
+        self.attacked = False
 
 class Battle:
     """Represents a battle between two decks of cards
@@ -362,10 +366,12 @@ class Battle:
         self.team2_ready = False
 
         self.turn = Turn()
-        self.replace_knocked_out = False
 
     def team1_move(self) -> bool:
         return self.next_move_team1
+    
+    def team1_turn(self) -> bool:
+        return self.turn_number % 2 == 1
 
     def is_over(self) -> bool:
         return self.team1_points >= self.POINTS_TO or self.team2_points >= self.POINTS_TO
@@ -456,12 +462,16 @@ class Battle:
         if self.team1_move():
             return self.deck2
         return self.deck1
+    
+    def need_to_replace_active(self) -> bool:
+        return len(self.deck1.active) == 0 or self.deck1.active[0] is None or \
+               len(self.deck2.active) == 0 or self.deck2.active[0] is None
 
     def play_card(self, hand_index:int) -> bool:
         return False
     
     def can_play_basic(self, hand_index:int) -> bool:
-        if not self.__battle_going() or self.replace_knocked_out:
+        if not self.__battle_going() or self.need_to_replace_active():
             return False
         deck = self.__current_deck()
         return self.__verify_basic_index(hand_index, deck)
@@ -481,7 +491,7 @@ class Battle:
         return False
     
     def can_evolve(self, hand_index:int, active_index:int) -> bool:
-        if not self.__battle_going() or self.replace_knocked_out:
+        if not self.__battle_going() or self.need_to_replace_active():
             return False
         deck = self.__current_deck()
         valid1 = self.__verify_hand_index(hand_index, deck)
@@ -508,7 +518,7 @@ class Battle:
         return False
 
     def can_retreat(self, active_index:int, energies:EnergyContainer) -> bool:
-        if not self.__battle_going() or self.replace_knocked_out:
+        if not self.__battle_going() or self.need_to_replace_active():
             return False
         deck = self.__current_deck()
         valid = self.__verify_active_index(active_index, deck)
@@ -518,7 +528,7 @@ class Battle:
         return False
 
     def could_retreat(self) -> bool:
-        if not self.__battle_going() or self.replace_knocked_out:
+        if not self.__battle_going() or self.need_to_replace_active():
             return False
         deck = self.__current_deck()
         return deck.active[0].active_card().retreat_cost <= deck.active[0].energies.size()
@@ -531,7 +541,7 @@ class Battle:
         return False
 
     def can_attack(self, attack_index:int) -> bool:
-        if not self.replace_knocked_out and self.__battle_going():
+        if not self.need_to_replace_active() and self.__battle_going():
             deck = self.__current_deck()
             if attack_index >= 0 and attack_index < len(deck.active[0].active_card().attacks):
                 return deck.active[0].energies.at_least_as_big(deck.active[0].active_card().attacks[attack_index].energy_cost)
@@ -550,12 +560,12 @@ class Battle:
             attack = deck.active[0].active_card().attacks[attack_index]
 
             self.__defending_deck().take_damage(attack.base_damage, deck.active[0].active_card().get_energy_type())
+            self.turn.attacked = True
             if self.__defending_deck().active[0].is_knocked_out():
-                if self.next_move_team1:
+                if self.team1_turn():
                     self.team1_points += 1 if self.__defending_deck().active[0].active_card().level <= 100 else 2
                 else:
                     self.team2_points += 1 if self.__defending_deck().active[0].active_card().level <= 100 else 2
-                self.replace_knocked_out = True
                 self.next_move_team1 = not self.next_move_team1
             else:
                 self.end_turn()
@@ -567,7 +577,7 @@ class Battle:
 
     def can_select(self, index:int) -> bool:
         deck = self.__current_deck()
-        return self.replace_knocked_out and self.__verify_bench_index(index, deck)
+        return self.need_to_replace_active() and self.__verify_bench_index(index, deck)
 
     def could_select(self) -> bool:
         deck = self.__current_deck()
@@ -580,11 +590,17 @@ class Battle:
         if self.can_select(index):
             deck = self.__current_deck()
             deck.replace_starter(index)
+            if self.need_to_replace_active():
+                self.next_move_team1 = not self.next_move_team1
+            else:
+                self.next_move_team1 = self.team1_turn()
+                if self.turn.attacked:
+                    self.end_turn()
             return True
         return False
 
     def can_place_energy(self, active_index:int) -> bool:
-        if not self.__battle_going() and not self.replace_knocked_out:
+        if not self.__battle_going() and not self.need_to_replace_active():
             return False
         deck = self.__current_deck()
         valid = self.__verify_active_index(active_index, deck)
