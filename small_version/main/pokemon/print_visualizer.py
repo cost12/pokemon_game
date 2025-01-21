@@ -18,6 +18,9 @@ def visualize_attack(attack:Attack, indent:str="") -> None:
     visualize_energies(attack.energy_cost, f"{indent}Cost: ")
 
 def visualize_active_pokemon(pokemon:ActivePokemon, indent:str="") -> None:
+    if pokemon is None:
+        print(f"{indent} None")
+        return
     print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().name()} {pokemon.hp()}/{pokemon.active_card().hit_points} HP")
     if not pokemon.active_card().is_basic():
         print(f"{indent}Evolves from {pokemon.active_card().evolves_from().name}")
@@ -31,6 +34,9 @@ def visualize_active_pokemon(pokemon:ActivePokemon, indent:str="") -> None:
     visualize_energies(pokemon.energies, f"{indent}Energy: ")
 
 def visualize_card(card:PokemonCard, indent:str="") -> None:
+    if card is None:
+        print(f"{indent} None")
+        return
     print(f"{indent}{card.card_type.name} {stage_to_str(card.pokemon.get_stage())} {card.name()} {card.hit_points} HP")
     if not card.is_basic():
         print(f"{indent}Evolves from {card.evolves_from().name}")
@@ -43,10 +49,16 @@ def visualize_card(card:PokemonCard, indent:str="") -> None:
     print(f"{indent}Resistance: {card.get_resistance().name if card.get_resistance() is not None else ""}")
 
 def visualize_active_pokemon_quick(pokemon:ActivePokemon, indent:str="") -> None:
-    print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().name()} {pokemon.hp()} HP")
+    if pokemon is None:
+        print(f"{indent} None")
+    else:
+        print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().name()} {pokemon.hp()} HP")
 
 def visualize_card_quick(card:PokemonCard, indent:str="") -> None:
-    print(f"{indent}{card.card_type.name} {stage_to_str(card.pokemon.get_stage())} {card.name()} {card.hit_points} HP")
+    if card is None:
+        print(f"{indent} None")
+    else:
+        print(f"{indent}{card.card_type.name} {stage_to_str(card.pokemon.get_stage())} {card.name() if card is not None else "None"} {card.hit_points} HP")
 
 def visualize_actives(active:tuple[ActivePokemon], indent:str="") -> None:
     print(f"{indent}Active:")

@@ -10,9 +10,6 @@ class CantEvolveException(Exception):
 class NoCardsToDrawException(Exception):
     pass
 
-class CantRetreatException(Exception):
-    pass
-
 @dataclass(frozen=True)
 class ActivePokemon:
     pokemon_cards:tuple[PokemonCard]
@@ -90,11 +87,6 @@ class ActivePokemon:
         return self.hp() <= 0
 
     def get_energies(self) -> EnergyContainer:
-        """Return the energies attached to the pokemon
-
-        :return: A dict of the energies attached to the active pokemon
-        :rtype: dict[EnergyType,int]
-        """
         return self.energies
 
     def get_cards(self) -> list[PokemonCard]:
@@ -140,28 +132,12 @@ class DeckSetup:
 
         self.energies = list[EnergyType](energies)
 
-        self.hand           = list[PokemonCard]()
+        self.hand           = cards[0:self.INITIAL_HAND_SIZE]
         self.active         = list[ActivePokemon]()
         self.discard        = list[PokemonCard]()
         self.energy_discard = EnergyContainer()
-        self.deck           = list[PokemonCard]()
+        self.deck           = cards[self.INITIAL_HAND_SIZE:]
         self.next_energies  = list[EnergyType]()
-        self.__setup(cards)
-
-    def __setup(self, cards:list[PokemonCard]):
-        """Prepare the deck by shuffling the deck and drawing the hand with at least 1 basic pokemon
-
-        :param cards: The cards in the deck
-        :type cards: list[PokemonCard]
-        """
-        cards = list[PokemonCard](cards)
-        basic = [card for card in cards if card.is_basic()]
-        self.hand.append(random.choice(basic))
-        cards.remove(self.hand[0])
-        random.shuffle(cards)
-        self.hand.extend(cards[0:self.INITIAL_HAND_SIZE-1])
-        self.deck.extend(cards[self.INITIAL_HAND_SIZE-1:])
-
         for _ in range(self.FUTURE_ENERGIES):
             self.__get_energy()
 
@@ -169,6 +145,12 @@ class DeckSetup:
         """Generates the next energy
         """
         self.next_energies.append(random.choice(self.energies))
+
+    def bench(self) -> list[PokemonCard]:
+        return self.active[1:]
+    
+    def bench_size(self) -> int:
+        return len(self.active) - 1
 
     def start_turn(self, get_energy:bool=True) -> None:
         """Updates the deck for a new turn
@@ -344,17 +326,18 @@ class Battle:
     def __init__(self, deck1:Deck, deck2:Deck, *, 
                  deck_size:int=20, duplicate_limit:int=2, basic_required:bool=True, points_to:int=3, turns_to_evolve:int=1):
         assert deck_size > 0 and duplicate_limit >= 1 and points_to >= 1 and turns_to_evolve >= 0
-        assert self.__deck_is_valid(deck1)
-        assert self.__deck_is_valid(deck2)
-
+        
         self.DECK_SIZE       = deck_size
         self.DUPLICATE_LIMIT = duplicate_limit
         self.BASIC_REQUIRED  = basic_required
         self.POINTS_TO       = points_to
         self.TURNS_TO_EVOLVE = turns_to_evolve
+        
+        assert self.__deck_is_valid(deck1)
+        assert self.__deck_is_valid(deck2)
 
-        self.deck1 = DeckSetup(deck1.cards, deck1.energies)
-        self.deck2 = DeckSetup(deck2.cards, deck2.energies)
+        self.deck1 = DeckSetup(self.__shuffle_deck_to_start(list(deck1.cards)), deck1.energies)
+        self.deck2 = DeckSetup(self.__shuffle_deck_to_start(list(deck2.cards)), deck2.energies)
 
         self.turn_number = 0
         self.next_move_team1 = True
@@ -367,14 +350,24 @@ class Battle:
 
         self.turn = Turn()
 
+    def __shuffle_deck_to_start(self, cards:list[PokemonCard]) -> list[PokemonCard]:
+        basics = [card for card in cards if card.is_basic()]
+        starter = random.choice(basics)
+        cards.remove(starter)
+        random.shuffle(cards)
+        cards.insert(0,starter)
+        return cards
+
     def team1_move(self) -> bool:
         return self.next_move_team1
     
     def team1_turn(self) -> bool:
-        return self.turn_number % 2 == 1
+        return self.turn_number % 2 == 0
 
     def is_over(self) -> bool:
-        return self.team1_points >= self.POINTS_TO or self.team2_points >= self.POINTS_TO
+        return self.team1_points >= self.POINTS_TO or self.team2_points >= self.POINTS_TO or \
+                (self.deck1.active[0] is None and self.deck1.bench_size() == 0) or \
+                (self.deck2.active[0] is None and self.deck2.bench_size() == 0)
 
     def __deck_is_valid(self, deck:Deck) -> bool:
         """Checks whether a deck is valid for use in a battle
@@ -422,7 +415,7 @@ class Battle:
             for j in range(i):
                 if to_play[j] < to_play[i]:
                     subtract += 1
-            assert deck.play_basic(to_play[i]-subtract)
+            deck.play_basic(to_play[i]-subtract)
         return True
     
     def team1_setup(self, to_play:tuple[int]) -> bool:
@@ -478,14 +471,14 @@ class Battle:
 
     def could_play_basic(self) -> bool:
         deck = self.__current_deck()
-        for card in deck.hand:
-            if self.can_play_basic(card):
+        for hand_index in range(len(deck.hand)):
+            if self.can_play_basic(hand_index):
                 return True
         return False
 
     def play_basic(self, hand_index:int) -> bool:
         deck = self.__current_deck()
-        if self.can_play_basic():
+        if self.can_play_basic(hand_index):
             deck.play_basic(hand_index)
             return True
         return False
@@ -523,7 +516,7 @@ class Battle:
         deck = self.__current_deck()
         valid = self.__verify_active_index(active_index, deck)
         if valid:
-            if deck.active[0].active_card().retreat_cost == energies.size() and deck.active[0].energies.at_least_as_big(energies):
+            if deck.bench_size() > 0 and deck.active[0].active_card().retreat_cost == energies.size() and deck.active[0].energies.at_least_as_big(energies):
                 return True
         return False
 
@@ -549,7 +542,7 @@ class Battle:
 
     def could_attack(self) -> bool:
         deck = self.__current_deck()
-        for attack_index in len(deck.active[0].active_card().attacks):
+        for attack_index in range(len(deck.active[0].active_card().attacks)):
             if self.can_attack(attack_index):
                 return True
         return False
@@ -559,13 +552,14 @@ class Battle:
         if self.can_attack(attack_index):
             attack = deck.active[0].active_card().attacks[attack_index]
 
+            attacked = self.__defending_deck().active[0].active_card()
             self.__defending_deck().take_damage(attack.base_damage, deck.active[0].active_card().get_energy_type())
             self.turn.attacked = True
-            if self.__defending_deck().active[0].is_knocked_out():
+            if self.__defending_deck().active[0] is None:
                 if self.team1_turn():
-                    self.team1_points += 1 if self.__defending_deck().active[0].active_card().level <= 100 else 2
+                    self.team1_points += 1 if attacked.level <= 100 else 2
                 else:
-                    self.team2_points += 1 if self.__defending_deck().active[0].active_card().level <= 100 else 2
+                    self.team2_points += 1 if attacked.level <= 100 else 2
                 self.next_move_team1 = not self.next_move_team1
             else:
                 self.end_turn()

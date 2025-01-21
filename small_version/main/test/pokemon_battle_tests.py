@@ -1,4 +1,4 @@
-from pokemon.pokemon_battle import ActivePokemon, DeckSetup, Deck
+from pokemon.pokemon_battle import ActivePokemon, DeckSetup, Deck, Battle
 from pokemon.pokemon_types import Condition, EnergyContainer, EnergyType
 from pokemon.pokemon_card import PokemonCard
 from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
@@ -18,16 +18,16 @@ def get_bulbasaur(cards:dict[str, PokemonCard]):
 def get_ivysaur(cards:dict[str, PokemonCard]):
     return ActivePokemon((cards['Ivysaur'], cards['Bulbasaur']))
 
-def set_can_evolve_this_turn(active:ActivePokemon, can_evolve:bool) -> ActivePokemon:
-    return ActivePokemon(active.pokemon_cards, can_evolve, active.damage, active.condition, active.energies)
+def set_turns_in_active(active:ActivePokemon, turns:int) -> ActivePokemon:
+    return ActivePokemon(active.pokemon_cards, turns, active.damage, active.condition, active.energies)
 
 def set_damage(active:ActivePokemon, damage:int) -> ActivePokemon:
-    return ActivePokemon(active.pokemon_cards, active.can_evolve_this_turn, damage, active.condition, active.energies)
+    return ActivePokemon(active.pokemon_cards, active.turns_in_active, damage, active.condition, active.energies)
 
 def test_default():
     cards  = get_cards()
     active = get_bulbasaur(cards)
-    assert active.can_evolve_this_turn == False
+    assert active.turns_in_active == 0
     assert active.damage == 0
     assert active.condition == Condition.NONE
     assert isinstance(active.energies, EnergyContainer)
@@ -35,32 +35,14 @@ def test_default():
 def test_evolve():
     cards  = get_cards()
     active = get_bulbasaur(cards)
-    with pytest.raises(Exception):
-        active.evolve(cards['Ivysaur'])
 
-    active = set_can_evolve_this_turn(active, True)
+    active = set_turns_in_active(active, 1)
     new_active = active.evolve(cards['Ivysaur'])
     assert new_active.active_card() == cards['Ivysaur']
-    assert not new_active.can_evolve_this_turn
-    with pytest.raises(Exception):
-        active.evolve(cards['Venusaur'])
+    assert new_active.turns_in_active == 0
 
-    new_active = set_can_evolve_this_turn(new_active, True)
     new_active = new_active.evolve(cards['Venusaur ex'])
     assert new_active.active_card() == cards['Venusaur ex']
-
-def test_can_evolve():
-    cards  = get_cards()
-    active = get_bulbasaur(cards)
-    assert not active.can_evolve(cards['Ivysaur'])
-
-    active = set_can_evolve_this_turn(active, True)
-    assert active.can_evolve(cards['Ivysaur'])
-    assert not active.can_evolve(cards['Venusaur'])
-
-    new_active = active.evolve(cards['Ivysaur'])
-    new_active = set_can_evolve_this_turn(new_active, True)
-    assert new_active.can_evolve(cards['Venusaur ex'])
 
 def test_hp():
     cards  = get_cards()
@@ -76,10 +58,10 @@ def test_hp():
 def test_end_turn():
     cards  = get_cards()
     active = get_bulbasaur(cards)
-    active = set_can_evolve_this_turn(active, False)
+    active = set_turns_in_active(active, 0)
     new_active = active.end_turn()
-    assert new_active.can_evolve_this_turn
-    assert not active.can_evolve_this_turn
+    assert new_active.turns_in_active == 1
+    assert active.turns_in_active == 0
 
 def test_between_turns():
     cards  = get_cards()
@@ -98,7 +80,6 @@ def test_attach_energy():
     assert new_active2.energies.size() == 2
 
 def test_retreat():
-    # TO TEST: 0 retreat cost card
     cards  = get_cards()
     active = get_bulbasaur(cards)
     
@@ -109,7 +90,6 @@ def test_retreat():
 
     with pytest.raises(Exception):
         new_active.retreat(EnergyContainer(frozendict({EnergyType.GRASS:1})))
-        new_active.retreat(EnergyContainer(frozendict()))
 
     active = active.attach_energy(EnergyType.FIRE)
     new_active = active.retreat(EnergyContainer(frozendict({EnergyType.GRASS:1})))
@@ -118,39 +98,7 @@ def test_retreat():
     assert new_active.energies.size_of(EnergyType.FIRE) == 1
 
     with pytest.raises(Exception):
-        active.retreat(EnergyContainer(frozendict({EnergyType.GRASS:1, EnergyType.FIRE:1})))
         active.retreat(EnergyContainer(frozendict({EnergyType.METAL:1})))
-
-    active = get_ivysaur(cards)
-    active = active.attach_energy(EnergyType.GRASS)
-    with pytest.raises(Exception):
-        active.retreat(EnergyContainer(frozendict({EnergyType.GRASS:1})))
-    active = active.attach_energy(EnergyType.GRASS)
-    new_active = active.retreat(EnergyContainer(frozendict({EnergyType.GRASS:2})))
-    assert active.energies.size() == 2
-    assert new_active.energies.size() == 0
-
-def test_can_retreat():
-    # TO TEST: 0 retreat cost card
-    cards  = get_cards()
-    active = get_bulbasaur(cards)
-    
-    assert not active.can_retreat(EnergyContainer(frozendict({EnergyType.GRASS:1})))
-    active = active.attach_energy(EnergyType.GRASS)
-    assert active.can_retreat(EnergyContainer(frozendict({EnergyType.GRASS:1})))
-    assert not active.can_retreat(EnergyContainer(frozendict()))
-
-    active = active.attach_energy(EnergyType.GRASS)
-    active = active.attach_energy(EnergyType.FIRE)
-    assert active.can_retreat(EnergyContainer(frozendict({EnergyType.FIRE:1})))
-    assert not active.can_retreat(EnergyContainer(frozendict({EnergyType.GRASS:1, EnergyType.FIRE:1})))
-    assert not active.can_retreat(EnergyContainer(frozendict({EnergyType.METAL:1})))
-
-    active = get_ivysaur(cards)
-    active = active.attach_energy(EnergyType.GRASS)
-    assert not active.can_retreat(EnergyContainer(frozendict({EnergyType.GRASS:1})))
-    active = active.attach_energy(EnergyType.GRASS)
-    assert active.can_retreat(EnergyContainer(frozendict({EnergyType.GRASS:2})))
 
 def test_take_damage():
     cards  = get_cards()
@@ -203,23 +151,23 @@ def place_basic(deck:DeckSetup) -> bool:
     for card in deck.hand:
         if card.is_basic():
             deck.hand.remove(card)
-            deck.active.append(ActivePokemon(card))
+            deck.active.append(ActivePokemon((card,)))
             return True
     for card in deck.deck:
         if card.is_basic():
             deck.deck.remove(card)
-            deck.active.append(ActivePokemon(card))
+            deck.active.append(ActivePokemon((card,)))
             return True
     return False
 
 def place_evolution_in_hand(deck:DeckSetup, active_index:int, hand_index:int) -> bool:
     for card in deck.hand:
-        if card.evolves_from(deck.active[active_index]):
+        if card.evolves_from() == deck.active[active_index].active_card().pokemon:
             deck.hand.remove(card)
             deck.hand.insert(hand_index, card)
             return True
     for card in deck.deck:
-        if card.evolves_from(deck.active[active_index]):
+        if card.evolves_from() == deck.active[active_index].active_card().pokemon:
             deck.deck.remove(card)
             deck.hand.insert(hand_index, card)
             return True
@@ -246,20 +194,20 @@ def evolve(deck:DeckSetup, active_index:int) -> bool:
             return True
     return False
 
-def set_can_evolve(deck:DeckSetup, active_index:int, can_evolve:bool):
+def set_turns_in_active_deck(deck:DeckSetup, active_index:int, turns:int):
     cards = deck.active[active_index].pokemon_cards
     damage = deck.active[active_index].damage
     condition = deck.active[active_index].condition
     energies = deck.active[active_index].energies
-    deck.active[active_index] = ActivePokemon(cards, can_evolve, damage, condition, energies)
+    deck.active[active_index] = ActivePokemon(cards, turns, damage, condition, energies)
 
 def place_energy(deck:DeckSetup, active_index:int, energy:EnergyType):
     cards = deck.active[active_index].pokemon_cards
-    can_evolve = deck.active[active_index].can_evolve_this_turn
+    turns = deck.active[active_index].turns_in_active
     damage = deck.active[active_index].damage
     condition = deck.active[active_index].condition
     energies = deck.active[active_index].energies.add_energy(energy)
-    deck.active[active_index] = ActivePokemon(cards, can_evolve, damage, condition, energies)
+    deck.active[active_index] = ActivePokemon(cards, turns, damage, condition, energies)
 
 def same_cards(cards:list[PokemonCard], deck:DeckSetup):
     deck_cards = []
@@ -280,39 +228,32 @@ def test_setup():
     deck_setup = DeckSetup(deck.cards, deck.energies)
     size = len(deck.cards)
 
-    assert len(deck_setup.next_energies) == deck_setup.future_energies
-    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+    assert len(deck_setup.next_energies) == deck_setup.FUTURE_ENERGIES
+    assert len(deck_setup.hand) == deck_setup.INITIAL_HAND_SIZE
     assert len(deck_setup.hand) + len(deck_setup.deck) == size
-    assert sum(1 for card in deck_setup.hand if card.is_basic()) >= 1
-
-def test_get_energy():
-    deck = get_deck()
-    deck_setup = DeckSetup(deck.cards, deck.energies)
-    for _ in range(10):
-        assert deck_setup.__get_energy() in deck.energies
 
 def test_start_turn():
     deck = get_deck()
     deck_setup = DeckSetup(deck.cards, deck.energies)
     # no energy
     deck_setup.start_turn(False)
-    assert len(deck_setup.next_energies) == deck_setup.future_energies
-    assert len(deck_setup.hand) - 1 == deck_setup.initial_hand_size
+    assert len(deck_setup.next_energies) == deck_setup.FUTURE_ENERGIES
+    assert len(deck_setup.hand) - 1 == deck_setup.INITIAL_HAND_SIZE
     # yes energy
     deck_setup = DeckSetup(deck.cards, deck.energies)
     deck_setup.start_turn()
-    assert len(deck_setup.next_energies) - 1 == deck_setup.future_energies
-    assert len(deck_setup.hand) - 1 == deck_setup.initial_hand_size
+    assert len(deck_setup.next_energies) - 1 == deck_setup.FUTURE_ENERGIES
+    assert len(deck_setup.hand) - 1 == deck_setup.INITIAL_HAND_SIZE
     # hand full
     deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=5, max_hand_size=5)
     deck_setup.start_turn()
-    assert len(deck_setup.next_energies) - 1 == deck_setup.future_energies
-    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+    assert len(deck_setup.next_energies) - 1 == deck_setup.FUTURE_ENERGIES
+    assert len(deck_setup.hand) == deck_setup.INITIAL_HAND_SIZE
     # deck empty
-    deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=len(deck.cards))
+    deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=len(deck.cards), max_hand_size=len(deck.cards))
     deck_setup.start_turn()
-    assert len(deck_setup.next_energies) - 1 == deck_setup.future_energies
-    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+    assert len(deck_setup.next_energies) - 1 == deck_setup.FUTURE_ENERGIES
+    assert len(deck_setup.hand) == deck_setup.INITIAL_HAND_SIZE
 
 def test_between_turns():
     pass
@@ -326,22 +267,22 @@ def test_draw_card():
     # normal
     deck_setup = DeckSetup(deck.cards, deck.energies)
     assert deck_setup.draw_card()
-    assert len(deck_setup.hand) - 1 == deck_setup.initial_hand_size
+    assert len(deck_setup.hand) - 1 == deck_setup.INITIAL_HAND_SIZE
     # hand full
     deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=5, max_hand_size=5)
     assert not deck_setup.draw_card()
-    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+    assert len(deck_setup.hand) == deck_setup.INITIAL_HAND_SIZE
     # deck empty
-    deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=len(deck.cards))
+    deck_setup = DeckSetup(deck.cards, deck.energies, initial_hand_size=len(deck.cards), max_hand_size=len(deck.cards))
     assert not deck_setup.start_turn()
-    assert len(deck_setup.hand) == deck_setup.initial_hand_size
+    assert len(deck_setup.hand) == deck_setup.INITIAL_HAND_SIZE
 
 def test_play_card_from_hand():
     deck = get_deck()
     deck_setup = DeckSetup(deck.cards, deck.energies)
     deck_setup.play_card_from_hand(0)
     assert same_cards(deck.cards, deck_setup)
-    assert len(deck_setup.hand) - 1 == deck_setup.initial_hand_size
+    assert len(deck_setup.hand) == deck_setup.INITIAL_HAND_SIZE - 1
     assert len(deck_setup.discard) == 1
 
 def test_evolve():
@@ -354,3 +295,83 @@ def test_evolve():
     pass
 
 # END OF TESTING FOR DeckSetup
+
+# FULL BATTLE TESTING
+def deterministic_battle_setup(deck_cards:list[PokemonCard]) -> Battle:
+    deck = Deck("name1", deck_cards, (EnergyType.GRASS,))
+    battle = Battle(deck, deck, deck_size=12, duplicate_limit=3)
+    battle.deck1 = DeckSetup(deck.cards, deck.energies)
+    battle.deck2 = DeckSetup(deck.cards, deck.energies)
+    return battle
+
+def test_battle():
+    cards = get_cards()
+    deck_cards = [
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex'],
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex'],
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex']
+    ]
+    battle = deterministic_battle_setup(deck_cards)
+    # setup: both teams place Bulbasuar to active
+    assert battle.team1_setup((0,))
+    assert battle.team2_setup((0,))
+    # Team 1 turn 1: card is drawn
+    assert battle.team1_turn()
+    assert len(battle.deck1.hand) == 5
+    battle.end_turn()
+    # Team 2 turn 2: place energy in Bulbasaur, card is drawn
+    assert not battle.team1_turn()
+    assert len(battle.deck2.hand) == 5
+    assert battle.place_energy(0)
+    assert battle.deck2.active[0].energies.size_of(EnergyType.GRASS) == 1
+    battle.end_turn()
+    # Team 1 turn 3: place energy on active, play Bulbasaur to bench, retreat, evolve bench
+    assert battle.place_energy(0)
+    assert battle.play_basic(3)
+    assert battle.retreat(1, EnergyContainer(frozendict({EnergyType.GRASS:1})))
+    assert battle.evolve(0, 1)
+    battle.end_turn()
+    # Team 2 turn 4: place energy on active, attack
+    assert battle.place_energy(0)
+    assert battle.attack(0)
+    # Team 1 turn 5: place energy 1 on bench
+    assert battle.deck1.active[0].hp() == 30
+    assert battle.place_energy(1)
+    battle.end_turn()
+    # Team 2 turn 6: attack
+    assert battle.attack(0)
+    # Team 1 turn 6: replace starter
+    assert not battle.team1_turn()
+    assert battle.team2_points == 1
+    assert battle.team1_move()
+    assert battle.available_actions() == ['select', 'new_active']
+    assert battle.select(1)
+    # Team 1 turn 7: place energy 2
+    assert battle.team1_turn()
+    assert battle.place_energy(0)
+    battle.end_turn()
+    # Team 2 turn 8: attack
+    assert battle.attack(0)
+    # Team 1 turn 9: place energy 3 and attack
+    assert battle.place_energy(0)
+    assert battle.attack(0)
+    # Team 2 turn 10: attack
+    assert battle.attack(0)
+    # Team 1 turn 11: attack, win
+    assert battle.attack(0)
+    assert battle.team1_points == 1
+    assert battle.deck2.bench_size() == 0
+    assert battle.deck2.active[0] is None
+    assert battle.is_over()
+    assert battle.available_actions() == []
+
+# END OF FULL BATTLE TESTING

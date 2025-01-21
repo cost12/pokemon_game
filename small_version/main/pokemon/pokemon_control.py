@@ -206,7 +206,7 @@ class CommandLineBattleController(BattleController):
                     energies = EnergyContainer()
                     for token in tokens[2:]:
                         if token.upper() in EnergyType:
-                            energies = energies.add_energy(EnergyType[token])
+                            energies = energies.add_energy(EnergyType[token.upper()])
                         else:
                             return False, "retreat", f"invalid energy type: {token}"
                     return True, "retreat", (active_index, energies)
@@ -266,7 +266,7 @@ class CommandLineBattleController(BattleController):
         user_input = input("\nSelect your action (l for list of actions): ")
         valid, move, inputs = self.__validate_move(user_input)
         while not valid:
-            print(move)
+            print(f"{move} error: {inputs}")
             self.__prompt_command(user_input, own_deck, opponent_deck, additional_moves)
             user_input = input("\nSelect your action: ")
             valid, move, inputs = self.__validate_move(user_input)

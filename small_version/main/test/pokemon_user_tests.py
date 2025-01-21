@@ -4,13 +4,14 @@ from pokemon.pokemon_collections import generate_attacks, generate_pokemon, gene
 from pokemon.pokemon_card import PokemonCard
 from pokemon.pokemon_battle import Deck
 from pokemon.pokemon_types import EnergyType
+from pokemon.utils import tuple_to_counts
 
 def three_cards() -> tuple[User,dict[str, PokemonCard]]:
     attacks = generate_attacks()
     pokemon = generate_pokemon()
     cards = generate_pokemon_cards(pokemon, attacks)
 
-    initial_cards = [cards['Bulbasaur'], cards['Bulbasaur'], cards['Charmander']]
+    initial_cards = {cards['Bulbasaur']: 2, cards['Charmander']: 1}
     user = User("name", initial_cards)
     return user, cards
 
@@ -41,7 +42,7 @@ def twenty_cards() -> tuple[User, dict[str, PokemonCard], list[PokemonCard]]:
         cards['Wartortle'],
         cards['Wartortle']
     ]
-    user = User("name", initial_cards)
+    user = User("name", tuple_to_counts(initial_cards))
     return user, cards, initial_cards
 
 def test_default():

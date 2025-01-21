@@ -7,9 +7,9 @@ class User:
     """Represents a user that collects and battles with cards
     """
 
-    def __init__(self, username:str, initial_cards:list[PokemonCard]|None=None):
+    def __init__(self, username:str, initial_cards:dict[PokemonCard,int]|None=None):
         self.username = username
-        self.cards = dict[PokemonCard,int]() if initial_cards is None else utils.tuple_to_counts(initial_cards)
+        self.cards = dict[PokemonCard,int]() if initial_cards is None else initial_cards
         self.decks = dict[str,Deck]()
         self.controller = BattleController()
 
@@ -50,9 +50,10 @@ class User:
         :return: True if the deck is added, false otherwise
         :rtype: bool
         """
-        counts = utils.tuple_to_counts(deck.get_cards())
-        for card in counts.keys():
+        counts = dict[PokemonCard, int](utils.tuple_to_counts(deck.get_cards()))
+        for card, count in counts.items():
             if counts[card] > self.number_of_copies(card):
+                print(f"{card.pokemon.name} {count} > {self.number_of_copies(card)}")
                 return False
         self.decks[deck.name] = deck
         return True
