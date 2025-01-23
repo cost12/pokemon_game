@@ -467,7 +467,7 @@ class Battle:
         if not self.__battle_going() or self.need_to_replace_active():
             return False
         deck = self.__current_deck()
-        return self.__verify_basic_index(hand_index, deck)
+        return self.__verify_basic_index(hand_index, deck) and deck.bench_size() < deck.BENCH_SIZE
 
     def could_play_basic(self) -> bool:
         deck = self.__current_deck()
