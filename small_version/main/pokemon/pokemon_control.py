@@ -2,6 +2,32 @@ from pokemon.pokemon_battle import Battle, OwnDeckView, OpponentDeckView, get_op
 from pokemon.print_visualizer import visualize_own_deck, visualize_opponent_deck, visualize_active_pokemon, visualize_card
 from pokemon.pokemon_types import EnergyType, EnergyContainer
 
+class Action:
+    """These should be in/ associated with Battle
+    A method can be called to query legal/available actions
+
+    The BattleController can also have it's own actions, these may or may not be part of the same class
+    """
+    def __init__(self):
+        self.name = ""
+        self.input_format = ""
+        self.description = ""
+    
+    def raw_input(self, input:str) -> bool:
+        """Takes in a string and determines whether the input is an action
+        """
+        pass
+
+    def input_to_action(self, input:str) -> 'Action':
+        """Takes in a string and creates an action described by the string
+        """
+        pass
+
+    def battle_call(self, battle:Battle) -> None:
+        """Performs the action in the battle
+        """
+        pass
+
 def battle_control(battle:Battle, controller1:'BattleController', controller2:'BattleController') -> None:
     """Controls the flow and inputs to a battle
 

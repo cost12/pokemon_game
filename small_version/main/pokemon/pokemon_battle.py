@@ -114,7 +114,7 @@ class Deck:
 class DeckSetup:
 
     def __init__(self, cards:list[PokemonCard], energies:list[EnergyType], *, 
-                 bench_size:int=3, initial_hand_size:int=5, max_hand_size:int=10, future_energies:int=1):
+                 initial_hand_size:int=5, future_energies:int=1):
         """Represents the way a deck is set during a battle
 
         :param cards: The pokemon cards in the deck
@@ -122,23 +122,15 @@ class DeckSetup:
         :param energies: The available energy types to be used
         :type energies: list[EnergyType]
         """
-        assert max_hand_size >= initial_hand_size
-        assert initial_hand_size <= len(cards)
-        assert bench_size >= 0 and initial_hand_size >= 0 and max_hand_size >= 0 and future_energies >= 0
-        self.BENCH_SIZE        = bench_size
-        self.INITIAL_HAND_SIZE = initial_hand_size
-        self.MAX_HAND_SIZE     = max_hand_size
-        self.FUTURE_ENERGIES   = future_energies
-
         self.energies = list[EnergyType](energies)
 
-        self.hand           = cards[0:self.INITIAL_HAND_SIZE]
+        self.hand           = cards[0:initial_hand_size]
         self.active         = list[ActivePokemon]()
         self.discard        = list[PokemonCard]()
         self.energy_discard = EnergyContainer()
-        self.deck           = cards[self.INITIAL_HAND_SIZE:]
+        self.deck           = cards[initial_hand_size:]
         self.next_energies  = list[EnergyType]()
-        for _ in range(self.FUTURE_ENERGIES):
+        for _ in range(future_energies):
             self.__get_energy()
 
     def __get_energy(self) -> None:
@@ -152,7 +144,7 @@ class DeckSetup:
     def bench_size(self) -> int:
         return len(self.active) - 1
 
-    def start_turn(self, get_energy:bool=True) -> None:
+    def start_turn(self, get_energy:bool=True, draw_card:bool=True) -> None:
         """Updates the deck for a new turn
 
         :param get_energy: True if the player gets an energy this turn. This is only false for the first player's first turn, defaults to True
@@ -160,8 +152,9 @@ class DeckSetup:
         :raises NoCardsToDrawException: When there are no cards left in the deck
         """
         if get_energy:
-            self.__get_energy()   
-        self.draw_card()
+            self.__get_energy()
+        if draw_card:   
+            self.draw_card()
 
     def between_turns(self) -> None:
         for i in range(len(self.active)):
@@ -171,17 +164,11 @@ class DeckSetup:
         for i in range(len(self.active)):
             self.active[i] = self.active[i].end_turn()
 
-    def draw_card(self) -> bool:
+    def draw_card(self) -> None:
         """Updates the deck for a drawn card
-
-        :return: True if a card is drawn, false otherwise
-        :rtype: bool
         """
-        if len(self.deck) == 0 or len(self.hand) >= self.MAX_HAND_SIZE:
-            return False
         self.hand.append(self.deck[0])
         self.deck = self.deck[1:]
-        return True
 
     def play_card_from_hand(self, hand_index:int):
         """Updates the deck to represent a card from the hand being used
@@ -319,19 +306,52 @@ class Turn:
         self.energy_used = False
         self.attacked = False
 
+@dataclass(frozen=True)
+class Rules:
+    DECK_SIZE         :int  = 20
+    DUPLICATE_LIMIT   :int  = 2
+    BASIC_REQUIRED    :bool = True
+    POINTS_TO         :int  = 3
+    TURNS_TO_EVOLVE   :int  = 1
+    BENCH_SIZE        :int  = 3
+    INITIAL_HAND_SIZE :int  = 5
+    MAX_HAND_SIZE     :int  = 10
+    FUTURE_ENERGIES   :int  = 1
+
+@dataclass(frozen=True)
+class BattleState:
+    rules :Rules
+
+class Action:
+    """Represents an action a player can make in a battle
+    Has no state, but manipulates battle state
+    Will likely need to break Battle into Battle and BattleState where Battle contains BattleState and also Actions that are valid for the battle
+    Also, maybe a Rules class or something to hold things like DECK_SIZE, DUPLICATE_LIMIT, etc
+    """
+
+    def action(self, battle:'Battle', inputs:tuple) -> None:
+        pass
+
+    def is_valid(self, battle:'Battle', inputs:tuple) -> None:
+        pass
+
+    def could_act(self, battle:'Battle', inputs:tuple) -> None:
+        pass
+
+    def action_name(self) -> str:
+        pass
+
+    def action_description(self) -> str:
+        pass
+
 class Battle:
     """Represents a battle between two decks of cards
     """
 
     def __init__(self, deck1:Deck, deck2:Deck, *, 
-                 deck_size:int=20, duplicate_limit:int=2, basic_required:bool=True, points_to:int=3, turns_to_evolve:int=1):
-        assert deck_size > 0 and duplicate_limit >= 1 and points_to >= 1 and turns_to_evolve >= 0
+                 rules:Rules=Rules()):        
         
-        self.DECK_SIZE       = deck_size
-        self.DUPLICATE_LIMIT = duplicate_limit
-        self.BASIC_REQUIRED  = basic_required
-        self.POINTS_TO       = points_to
-        self.TURNS_TO_EVOLVE = turns_to_evolve
+        self.rules = rules
         
         assert self.__deck_is_valid(deck1)
         assert self.__deck_is_valid(deck2)
@@ -620,7 +640,9 @@ class Battle:
         self.deck2.between_turns()
 
     def start_turn(self, generate_energy:bool=True) -> None:
-        self.__current_deck().start_turn(generate_energy)
+        deck = self.__current_deck()
+        draw_card = len(deck.deck) > 0 and len(deck.hand) < self.MAX_HAND_SIZE
+        deck.start_turn(generate_energy, draw_card)
         self.turn.energy_used = not generate_energy
 
     def could_end_turn(self) -> bool:
