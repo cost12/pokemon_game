@@ -318,9 +318,52 @@ class Rules:
     MAX_HAND_SIZE     :int  = 10
     FUTURE_ENERGIES   :int  = 1
 
+    def is_valid_deck(self, deck:Deck) -> bool:
+        """Checks whether a deck is valid for use in a battle
+
+        :param deck: The deck to check
+        :type deck: Deck 
+        :return: true if the deck is valid, false otherwise
+        :rtype: bool
+        """
+        if not (len(deck.cards) == self.DECK_SIZE):
+            return False
+        has_basic = False
+        card_names = dict[str,int]()
+        for card in deck.cards:
+            if card.is_basic():
+                has_basic = True
+            if card.name() in card_names:
+                card_names[card.name()] += 1
+                if card_names[card.name()] > self.DUPLICATE_LIMIT:
+                    return False
+            else:
+                card_names[card.name()] = 1
+        return has_basic or not self.BASIC_REQUIRED
+
 @dataclass(frozen=True)
 class BattleState:
-    rules :Rules
+    deck1           :DeckSetup
+    deck2           :DeckSetup
+    rules           :Rules
+    turn_number     :int = 0
+    next_move_team1 :bool = True
+    team1_points    :int = 0
+    team2_points    :int = 0
+    team1_ready     :bool = False
+    team2_ready     :bool = False
+    current_turn    :Turn = field(default=Turn)
+
+    def team1_move(self) -> bool:
+        return self.next_move_team1
+    
+    def team1_turn(self) -> bool:
+        return self.turn_number % 2 == 0
+
+    def is_over(self) -> bool:
+        return self.team1_points >= self.rules.POINTS_TO or self.team2_points >= self.rules.POINTS_TO or \
+                (self.deck1.active[0] is None and self.deck1.bench_size() == 0) or \
+                (self.deck2.active[0] is None and self.deck2.bench_size() == 0)
 
 class Action:
     """Represents an action a player can make in a battle
@@ -348,69 +391,18 @@ class Battle:
     """Represents a battle between two decks of cards
     """
 
-    def __init__(self, deck1:Deck, deck2:Deck, *, 
-                 rules:Rules=Rules()):        
-        
-        self.rules = rules
-        
-        assert self.__deck_is_valid(deck1)
-        assert self.__deck_is_valid(deck2)
-
-        self.deck1 = DeckSetup(self.__shuffle_deck_to_start(list(deck1.cards)), deck1.energies)
-        self.deck2 = DeckSetup(self.__shuffle_deck_to_start(list(deck2.cards)), deck2.energies)
-
-        self.turn_number = 0
-        self.next_move_team1 = True
-
-        self.team1_points = 0
-        self.team2_points = 0
-
-        self.team1_ready = False
-        self.team2_ready = False
-
-        self.turn = Turn()
-
-    def __shuffle_deck_to_start(self, cards:list[PokemonCard]) -> list[PokemonCard]:
-        basics = [card for card in cards if card.is_basic()]
-        starter = random.choice(basics)
-        cards.remove(starter)
-        random.shuffle(cards)
-        cards.insert(0,starter)
-        return cards
+    def __init__(self, actions:dict[str,Action], state:BattleState):
+        self.state = state
+        self.actions = actions
 
     def team1_move(self) -> bool:
-        return self.next_move_team1
+        return self.state.team1_move()
     
     def team1_turn(self) -> bool:
-        return self.turn_number % 2 == 0
+        return self.state.team1_turn()
 
     def is_over(self) -> bool:
-        return self.team1_points >= self.POINTS_TO or self.team2_points >= self.POINTS_TO or \
-                (self.deck1.active[0] is None and self.deck1.bench_size() == 0) or \
-                (self.deck2.active[0] is None and self.deck2.bench_size() == 0)
-
-    def __deck_is_valid(self, deck:Deck) -> bool:
-        """Checks whether a deck is valid for use in a battle
-
-        :param deck: The deck to check
-        :type deck: Deck 
-        :return: true if the deck is valid, false otherwise
-        :rtype: bool
-        """
-        if not (len(deck.cards) == self.DECK_SIZE):
-            return False
-        has_basic = False
-        card_names = dict[str,int]()
-        for card in deck.cards:
-            if card.is_basic():
-                has_basic = True
-            if card.name() in card_names:
-                card_names[card.name()] += 1
-                if card_names[card.name()] > self.DUPLICATE_LIMIT:
-                    return False
-            else:
-                card_names[card.name()] = 1
-        return has_basic or not self.BASIC_REQUIRED
+        return self.state.is_over()
 
     def valid_setup(self, to_play:tuple[int], deck:DeckSetup) -> bool:
         indices = set()
@@ -682,3 +674,4 @@ class Battle:
         if self.could_end_turn():
             moves.append('end_turn')
         return moves
+    
