@@ -111,32 +111,18 @@ class Deck:
         """
         return self.cards
 
+@dataclass(frozen=True)
 class DeckSetup:
+    energies       :tuple[EnergyType]
+    deck           :tuple[PokemonCard]
+    hand           :tuple[PokemonCard]
+    active         :tuple[ActivePokemon]
+    discard        :tuple[PokemonCard]
+    energy_discard :EnergyContainer
+    next_energies  :tuple[EnergyType]
 
-    def __init__(self, cards:list[PokemonCard], energies:list[EnergyType], *, 
-                 initial_hand_size:int=5, future_energies:int=1):
-        """Represents the way a deck is set during a battle
-
-        :param cards: The pokemon cards in the deck
-        :type cards: list[PokemonCard]
-        :param energies: The available energy types to be used
-        :type energies: list[EnergyType]
-        """
-        self.energies = list[EnergyType](energies)
-
-        self.hand           = cards[0:initial_hand_size]
-        self.active         = list[ActivePokemon]()
-        self.discard        = list[PokemonCard]()
-        self.energy_discard = EnergyContainer()
-        self.deck           = cards[initial_hand_size:]
-        self.next_energies  = list[EnergyType]()
-        for _ in range(future_energies):
-            self.__get_energy()
-
-    def __get_energy(self) -> None:
-        """Generates the next energy
-        """
-        self.next_energies.append(random.choice(self.energies))
+    def next_energy(self) -> EnergyType:
+        return random.choice(self.energies)
 
     def bench(self) -> list[PokemonCard]:
         return self.active[1:]
@@ -144,116 +130,103 @@ class DeckSetup:
     def bench_size(self) -> int:
         return len(self.active) - 1
 
-    def start_turn(self, get_energy:bool=True, draw_card:bool=True) -> None:
-        """Updates the deck for a new turn
-
-        :param get_energy: True if the player gets an energy this turn. This is only false for the first player's first turn, defaults to True
-        :type get_energy: bool, optional
-        :raises NoCardsToDrawException: When there are no cards left in the deck
-        """
+    def start_turn(self, get_energy:bool=True, draw_card:bool=True) -> 'DeckSetup':
+        next = list(self.next_energies)
+        hand = list(self.hand)
+        deck = list(self.deck)
         if get_energy:
-            self.__get_energy()
+            next.append(self.next_energy())
         if draw_card:   
-            self.draw_card()
+            card = deck.pop(0)
+            hand.append(card)
+        return DeckSetup(self.energies, tuple(deck), tuple(hand), self.active, self.discard, self.energy_discard, tuple(next))
 
-    def between_turns(self) -> None:
-        for i in range(len(self.active)):
-            self.active[i] = self.active[i].between_turns()
+    def between_turns(self) -> 'DeckSetup':
+        active = list(self.active)
+        for i in range(len(active)):
+            active[i] = active[i].between_turns()
+        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
 
-    def end_turn(self) -> None:
-        for i in range(len(self.active)):
-            self.active[i] = self.active[i].end_turn()
+    def end_turn(self) -> 'DeckSetup':
+        active = list(self.active)
+        for i in range(len(active)):
+            active[i] = active[i].end_turn()
+        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
 
-    def draw_card(self) -> None:
-        """Updates the deck for a drawn card
-        """
-        self.hand.append(self.deck[0])
-        self.deck = self.deck[1:]
+    def play_card_from_hand(self, hand_index:int) -> 'DeckSetup':
+        discard = list(self.discard)
+        hand = list(self.hand)
+        card = hand.pop(hand_index)
+        discard.append(card)
+        return DeckSetup(self.energies, self.deck, tuple(hand), self.active, tuple(discard), self.energy_discard, self.next_energies)
 
-    def play_card_from_hand(self, hand_index:int):
-        """Updates the deck to represent a card from the hand being used
+    def evolve(self, hand_index:int, active_index:int) -> 'DeckSetup':
+        active = list(self.active)
+        hand = list(self.hand)
+        card = hand.pop(hand_index)
+        active[active_index] = active[active_index].evolve(card)
+        return DeckSetup(self.energies, self.deck, tuple(hand), tuple(active), self.discard, self.energy_discard, self.next_energies)
 
-        :param hand_index: The index in the hand of the card used
-        :type hand_index: int
-        """
-        self.discard.append(self.hand[hand_index])
-        self.hand.pop(hand_index)
+    def retreat(self, active_index:int, energies:EnergyContainer) -> 'DeckSetup':
+        if active_index == 0: return self
+        active = list(self.active)
+        to_bench = active[0].retreat(energies)
+        energy_discard = self.energy_discard.add_energies(energies)
+        active[0] = active[active_index]
+        active[active_index] = to_bench
+        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, tuple(energy_discard), self.next_energies)
 
-    def evolve(self, hand_index:int, active_index:int) -> None:
-        """Updates the deck to represent evolving a card from the hand onto an active pokemomn
+    def take_damage(self, amount:int, damage_type:EnergyType) -> 'DeckSetup':
+        active = list(self.active)
+        active[0] = active[0].take_damage(amount, damage_type)
+        if active[0].is_knocked_out():
+            return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies).discard_from_active(0)
+        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
 
-        :param hand_index: The index of the card in the hand
-        :type hand_index: int
-        :param active_index: The index of the card in the active area
-        :type active_index: int
-        :raises CantEvolveException: When the pokemon can't evolve
-        """
-        self.active[active_index] = self.active[active_index].evolve(self.hand[hand_index])
-        self.hand.pop(hand_index)
+    def shuffle_hand_into_deck(self) -> 'DeckSetup':
+        deck = list(self.deck)
+        deck.extend(self.hand)
+        random.shuffle(deck)
+        return DeckSetup(self.energies, tuple(deck), tuple(), self.active, self.discard, self.energy_discard, self.next_energies)
 
-    def retreat(self, active_index:int, energies:EnergyContainer) -> bool:
-        """Updates the card to represent the active pokemon retreating
-
-        :param active_index: The index of the new card to put out
-        :type active_index: int
-        :param energies: The energies to discard if the retreat is successful
-        :type energies: EnergyContainer
-        :return: True if the retreat was successful
-        :rtype: bool
-        """
-        if active_index == 0: return False
-        temp = self.active[0].retreat(energies)
-        self.energy_discard = self.energy_discard.add_energies(energies)
-        self.active[0] = self.active[active_index]
-        self.active[active_index] = temp
-        return True
-
-    def take_damage(self, amount:int, damage_type:EnergyType) -> None:
-        self.active[0] = self.active[0].take_damage(amount, damage_type)
-        if self.active[0].is_knocked_out():
-            self.discard_from_active(0)
-
-    def shuffle_hand_into_deck(self) -> None:
-        """Empties the hand into the deck
-        """
-        self.deck.extend(self.hand)
-        self.hand = []
-        random.shuffle(self.deck)
-
-    def discard_from_active(self, active_index:int) -> None:
-        """Places the cards and energies from the active pokemon into the discard pile
-
-        :param active_index: The index of the pokemon to discard
-        :type active_index: int
-        """
-        self.discard.extend(self.active[active_index].get_cards())
-        energies = self.active[active_index].get_energies()
-        self.energy_discard = self.energy_discard.add_energies(energies)
+    def discard_from_active(self, active_index:int) -> 'DeckSetup':
+        discard = list(discard)
+        active = list(self.active)
+        discard.extend(active[active_index].get_cards())
+        energies = active[active_index].get_energies()
+        energy_discard = self.energy_discard.add_energies(energies)
         if active_index == 0:
-            self.active[active_index] = None
+            active[active_index] = None
         else:
-            self.active.pop(active_index)
+            active.pop(active_index)
+        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), tuple(discard), tuple(energy_discard), self.next_energies)
 
-    def attach_energy(self, active_index:int) -> None:
-        energy_type = self.next_energies.pop(0)
-        self.active[active_index] = self.active[active_index].attach_energy(energy_type)
+    def attach_energy(self, active_index:int) -> 'DeckSetup':
+        next_energies = list(self.next_energies)
+        active = list(self.active)
+        energy_type = next_energies.pop(0)
+        active[active_index] = active[active_index].attach_energy(energy_type)
+        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, tuple(next_energies))
 
-    def delete_energy(self) -> None:
-        self.next_energies.pop(0)
+    def delete_energy(self) -> 'DeckSetup':
+        next_energies = list(self.next_energies)
+        next_energies.pop(0)
+        return DeckSetup(self.energies, self.deck, self.hand, self.active, self.discard, self.energy_discard, tuple(next_energies))
 
-    def play_basic(self, hand_index:int) -> None:
-        """Plays a basic card from the hand to a new spot on the bench
+    def play_basic(self, hand_index:int) -> 'DeckSetup':
+        active = list(self.active)
+        hand = list(self.hand)
+        active.append(ActivePokemon((self.hand[hand_index],)))
+        hand.pop(hand_index)
+        return DeckSetup(self.energies, self.deck, tuple(hand), tuple(active), self.discard, self.energy_discard, self.next_energies)
 
-        :param hand_index: The index of the card in the hand
-        :type hand_index: int
-        """
-        self.active.append(ActivePokemon((self.hand[hand_index],)))
-        self.hand.pop(hand_index)
-
-    def replace_starter(self, active_index:int) -> None:
+    def replace_starter(self, active_index:int) -> 'DeckSetup':
         if active_index > 0:
-            self.active[0] = self.active[active_index]
-            self.active.pop(active_index)
+            active = list(self.active)
+            active[0] = active[active_index]
+            active.pop(active_index)
+            return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
+        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
 
 @dataclass(frozen=True)
 class OpponentDeckView:
@@ -295,16 +268,12 @@ def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
     """
     return OwnDeckView(tuple(deck.active), tuple(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), deck.energy_discard, deck.BENCH_SIZE)
 
+@dataclass(frozen=True)
 class Turn:
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.used_supporter = False
-        self.retreated = False
-        self.energy_used = False
-        self.attacked = False
+    used_supporter :bool = False
+    retreated      :bool = False
+    energy_used    :bool = False
+    attacked       :bool = False
 
 @dataclass(frozen=True)
 class Rules:
@@ -359,11 +328,24 @@ class BattleState:
     
     def team1_turn(self) -> bool:
         return self.turn_number % 2 == 0
+    
+    def current_deck(self) -> DeckSetup:
+        if self.team1_move():
+            return self.deck1
+        return self.deck2
+    
+    def update_current_deck(self, deck:DeckSetup) -> 'BattleState':
+        if self.team1_move():
+            return BattleState(deck, self.deck2, self.rules, self.turn_number, self.next_move_team1, self.team1_points, self.team2_points, self.team1_ready, self.team2_ready, self.current_turn)
+        return BattleState(self.deck1, deck, self.rules, self.turn_number, self.next_move_team1, self.team1_points, self.team2_points, self.team1_ready, self.team2_ready, self.current_turn)
 
     def is_over(self) -> bool:
         return self.team1_points >= self.rules.POINTS_TO or self.team2_points >= self.rules.POINTS_TO or \
                 (self.deck1.active[0] is None and self.deck1.bench_size() == 0) or \
                 (self.deck2.active[0] is None and self.deck2.bench_size() == 0)
+    
+    def battle_going(self) -> bool:
+        return self.team1_ready and self.team2_ready and not self.is_over()
 
 class Action:
     """Represents an action a player can make in a battle
@@ -372,13 +354,16 @@ class Action:
     Also, maybe a Rules class or something to hold things like DECK_SIZE, DUPLICATE_LIMIT, etc
     """
 
-    def action(self, battle:'Battle', inputs:tuple) -> None:
+    def action(self, battle:BattleState, inputs:tuple) -> tuple[bool, BattleState]:
         pass
 
-    def is_valid(self, battle:'Battle', inputs:tuple) -> None:
+    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
         pass
 
-    def could_act(self, battle:'Battle', inputs:tuple) -> None:
+    def is_valid_raw(self, inputs:tuple) -> tuple[bool, tuple]:
+        pass
+
+    def could_act(self, battle:BattleState) -> bool:
         pass
 
     def action_name(self) -> str:
@@ -386,6 +371,48 @@ class Action:
 
     def action_description(self) -> str:
         pass
+
+class SetupAction(Action):
+    def action(self, battle:BattleState, inputs:tuple[int]) -> tuple[bool, BattleState]:
+        if not self.is_valid(battle, inputs):
+            return False, battle
+        for i in range(len(inputs)):
+            subtract = 0
+            for j in range(i):
+                if inputs[j] < inputs[i]:
+                    subtract += 1
+            battle = battle.update_current_deck(battle.current_deck().play_basic(inputs[i]-subtract))
+        return True, battle
+    
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        indices = set()
+        for index in inputs:
+            if index in indices:
+                return False
+            indices.add(index)
+            if index < 0 or index >= len(battle.current_deck().hand) or not battle.current_deck().hand[index].is_basic():
+                return False
+        if len(inputs) > 0 and len(inputs) <= battle.rules.BENCH_SIZE + 1:
+            return True
+        return False
+    
+    def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool,tuple]:
+        indices = []
+        for index in inputs:
+            try:
+                indices.append(int(index))
+            except ValueError:
+                return False, None
+        return True, tuple(indices)
+    
+    def could_act(self, battle:BattleState) -> bool:
+        return not battle.team1_ready or not battle.team2_ready
+    
+    def action_name(self) -> str:
+        return "setup"
+    
+    def action_description(self) -> str:
+        return "Pick a starter and any bench pokemon to start"
 
 class Battle:
     """Represents a battle between two decks of cards
@@ -403,32 +430,13 @@ class Battle:
 
     def is_over(self) -> bool:
         return self.state.is_over()
-
-    def valid_setup(self, to_play:tuple[int], deck:DeckSetup) -> bool:
-        indices = set()
-        for index in to_play:
-            if index in indices:
-                return False
-            indices.add(index)
-            if index < 0 or index >= len(deck.hand) or not deck.hand[index].is_basic():
-                return False
-        if len(to_play) > 0 and len(to_play) <= deck.BENCH_SIZE + 1:
-            return True
+    
+    def action(self, action:str, inputs:tuple) -> bool:
+        if action in self.actions:
+            if self.actions[action].is_valid(self, inputs):
+                self.state = self.actions[action].action(inputs)
+                return True
         return False
-
-    def __battle_going(self) -> bool:
-        return self.team1_ready and self.team2_ready and not self.is_over()
-
-    def __setup(self, to_play:tuple[int], deck:DeckSetup) -> bool:
-        if not self.valid_setup(to_play, deck):
-            return False
-        for i in range(len(to_play)):
-            subtract = 0
-            for j in range(i):
-                if to_play[j] < to_play[i]:
-                    subtract += 1
-            deck.play_basic(to_play[i]-subtract)
-        return True
     
     def team1_setup(self, to_play:tuple[int]) -> bool:
         if self.team1_ready:
