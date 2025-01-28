@@ -3,7 +3,7 @@ from pokemon.pokemon_types import EnergyType, Condition, EnergyContainer
 
 import random
 from dataclasses import dataclass, field
-from queue import Queue
+from collections import deque
 
 class CantEvolveException(Exception):
     pass
@@ -19,6 +19,9 @@ class ActivePokemon:
         self.damage = damage
         self.conditions = conditions if conditions is not None else list[Condition]()
         self.energies = energies if energies is not None else EnergyContainer()
+
+    def copy(self) -> 'ActivePokemon':
+        return ActivePokemon(list(self.pokemon_cards), self.turns_in_active, self.damage, list(self.conditions), self.energies)
 
     def active_card(self) -> PokemonCard:
         return self.pokemon_cards[0]
@@ -77,14 +80,14 @@ class Deck:
 
 class DeckSetup:
 
-    def __init__(self, energies:list[EnergyType], deck:Queue[PokemonCard], hand:list[PokemonCard], active:list[ActivePokemon]|None=None, discard:list[PokemonCard]|None=None, energy_discard:EnergyContainer|None=None, next_energies:Queue[EnergyType]|None=None):
+    def __init__(self, energies:list[EnergyType], deck:deque[PokemonCard], hand:list[PokemonCard], active:list[ActivePokemon]|None=None, discard:list[PokemonCard]|None=None, energy_discard:EnergyContainer|None=None, next_energies:deque[EnergyType]|None=None):
         self.energies = energies
         self.deck = deck
         self.hand = hand
         self.active = active if active is not None else list[ActivePokemon]()
         self.discard = discard if discard is not None else list[PokemonCard]()
         self.energy_discard = energy_discard if discard is not None else EnergyContainer()
-        self.next_energies = next_energies if next_energies is not None else Queue[EnergyType]()
+        self.next_energies = next_energies if next_energies is not None else deque[EnergyType]()
 
     def __decide_next_energy(self) -> EnergyType:
         return random.choice(self.energies)
@@ -97,9 +100,9 @@ class DeckSetup:
 
     def start_turn(self, get_energy:bool=True, draw_card:bool=True) -> None:
         if get_energy:
-            self.next_energies.put(self.__decide_next_energy())
+            self.next_energies.append(self.__decide_next_energy())
         if draw_card:   
-            card = self.deck.get()
+            card = self.deck.popleft()
             self.hand.append(card)
 
     def between_turns(self) -> None:
@@ -135,11 +138,10 @@ class DeckSetup:
     def shuffle_hand_into_deck(self) -> None:
         cards = list(self.hand)
         self.hand.clear()
-        while not self.deck.empty():
-            cards.append(self.deck.get())
+        while len(self.deck) > 0:
+            cards.append(self.deck.popleft())
         random.shuffle(cards)
-        for card in cards:
-            self.deck.put(card)
+        self.deck = deque(cards)
 
     def discard_from_active(self, active_index:int) -> None:
         self.discard.extend(self.active[active_index].get_cards())
@@ -151,11 +153,11 @@ class DeckSetup:
             self.active.pop(active_index)
 
     def attach_energy(self, active_index:int) -> None:
-        energy_type = self.next_energies.get()
+        energy_type = self.next_energies.popleft()
         self.active[active_index].attach_energy(energy_type)
 
     def delete_energy(self) -> None:
-        self.next_energies.get()
+        self.next_energies.popleft()
 
     def play_basic(self, hand_index:int) -> None:
         card = self.hand.pop(hand_index)
@@ -166,25 +168,23 @@ class DeckSetup:
             card = self.active.pop(active_index)
             self.active[0] = card
 
-@dataclass(frozen=True)
+@dataclass
 class OpponentDeckView:
-    active: tuple[ActivePokemon]
-    hand_size: int
-    deck_size: int
-    energy_queue: tuple[EnergyType]
-    discard_pile: tuple[PokemonCard]
+    active:         list[ActivePokemon]
+    hand_size:      int
+    deck_size:      int
+    energy_queue:   deque[EnergyType]
+    discard_pile:   list[PokemonCard]
     energy_discard: EnergyContainer
-    bench_size: int
 
-@dataclass(frozen=True)
+@dataclass
 class OwnDeckView:
-    active: tuple[ActivePokemon]
-    hand: tuple[PokemonCard]
-    deck_size: int
-    energy_queue: tuple[EnergyType]
-    discard_pile: tuple[PokemonCard]
+    active:         list[ActivePokemon]
+    hand:           list[PokemonCard]
+    deck_size:      int
+    energy_queue:   deque[EnergyType]
+    discard_pile:   list[PokemonCard]
     energy_discard: EnergyContainer
-    bench_size: int
 
 def get_opponent_deck_view(deck:DeckSetup) -> OpponentDeckView:
     """Get a view of a DeckSetup without the ability to change the DeckSetup
@@ -194,7 +194,10 @@ def get_opponent_deck_view(deck:DeckSetup) -> OpponentDeckView:
     :return: The immutable partial view of the deck
     :rtype: DeckView
     """
-    return OpponentDeckView(tuple(deck.active), len(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), deck.energy_discard, deck.BENCH_SIZE)
+    active = list[ActivePokemon]()
+    for a in deck.active:
+        active.append(a.copy())
+    return OpponentDeckView(active, len(deck.hand), len(deck.deck), deque(deck.next_energies), list(deck.discard), deck.energy_discard)
 
 def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
     """Get a view of a DeckSetup without the ability to change the DeckSetup
@@ -204,7 +207,10 @@ def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
     :return: The immutable partial view of the deck
     :rtype: DeckView
     """
-    return OwnDeckView(tuple(deck.active), tuple(deck.hand), len(deck.deck), tuple(deck.next_energies), tuple(deck.discard), deck.energy_discard, deck.BENCH_SIZE)
+    active = list[ActivePokemon]()
+    for a in deck.active:
+        active.append(a.copy())
+    return OwnDeckView(active, list(deck.hand), len(deck.deck), deque(deck.next_energies), list(deck.discard), deck.energy_discard)
 
 @dataclass(frozen=True)
 class Turn:
