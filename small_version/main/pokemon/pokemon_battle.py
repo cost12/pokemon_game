@@ -373,20 +373,28 @@ class Action:
         pass
 
 class SetupAction(Action):
-    def action(self, battle:BattleState, inputs:tuple[int]) -> tuple[bool, BattleState]:
+    def action(self, battle:BattleState, inputs:tuple[bool, int]) -> tuple[bool, BattleState]:
         if not self.is_valid(battle, inputs):
             return False, battle
-        for i in range(len(inputs)):
+        for i in range(1,len(inputs)):
             subtract = 0
             for j in range(i):
                 if inputs[j] < inputs[i]:
                     subtract += 1
             battle = battle.update_current_deck(battle.current_deck().play_basic(inputs[i]-subtract))
+        if inputs[0]:
+            battle = BattleState(battle.deck1, battle.deck2, battle.rules, battle.turn_number, battle.next_move_team1, battle.team1_points, battle.team2_points, True, battle.team2_ready, battle.current_turn)
+        else:
+            battle = BattleState(battle.deck1, battle.deck2, battle.rules, battle.turn_number, battle.next_move_team1, battle.team1_points, battle.team2_points, battle.team1_ready, True, battle.current_turn)
         return True, battle
     
-    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+    def is_valid(self, battle:BattleState, inputs:tuple[bool,int]) -> bool:
+        is_team1 = inputs[0]
+        if battle.team1_ready and is_team1 or battle.team2_ready and not is_team1:
+            return False
+        basic_indices = inputs[1:]
         indices = set()
-        for index in inputs:
+        for index in basic_indices:
             if index in indices:
                 return False
             indices.add(index)
@@ -433,9 +441,8 @@ class Battle:
     
     def action(self, action:str, inputs:tuple) -> bool:
         if action in self.actions:
-            if self.actions[action].is_valid(self, inputs):
-                self.state = self.actions[action].action(inputs)
-                return True
+            success, self.state = self.actions[action].action(inputs)
+            return success
         return False
     
     def team1_setup(self, to_play:tuple[int]) -> bool:
