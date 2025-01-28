@@ -10,70 +10,37 @@ class CantEvolveException(Exception):
 class NoCardsToDrawException(Exception):
     pass
 
-@dataclass(frozen=True)
 class ActivePokemon:
-    pokemon_cards:tuple[PokemonCard]
-    turns_in_active:int = 0
-    damage:int=0
-    condition:Condition=field(default=Condition.NONE)
-    energies:EnergyContainer=field(default=EnergyContainer())
+
+    def __init__(self, cards:list[PokemonCard], turns:int=0, damage:int=0, conditions:list[Condition]=None, energies:EnergyContainer=None):
+        self.pokemon_cards = cards
+        self.turns_in_active = turns
+        self.damage = damage
+        self.conditions = conditions if conditions is not None else list[Condition]()
+        self.energies = energies if energies is not None else EnergyContainer()
 
     def active_card(self) -> PokemonCard:
-        """The card that is currently on top/ highest evolved
-
-        :return: The card that is currently on top/ highest evolved
-        :rtype: PokemonCard
-        """
         return self.pokemon_cards[0]
 
-    def evolve(self, card:PokemonCard) -> 'ActivePokemon':
-        """Evolves the active pokemon
-
-        :param card: The card to evolve to
-        :type card: PokemonCard
-        :return: The evolved card
-        :rtype: ActivePokemon
-        """
-        return ActivePokemon((card, *self.pokemon_cards), 0, self.damage, Condition.NONE, self.energies)
+    def evolve(self, card:PokemonCard) -> None:
+        self.pokemon_cards.insert(0, card)
+        self.conditions.clear()
+        self.turns_in_active = 0
 
     def hp(self) -> int:
-        """The remaining health of the pokemon
-
-        :return: The remaining health of the pokemon
-        :rtype: int
-        """
         return max(self.active_card().hit_points - self.damage, 0)
 
-    def end_turn(self) -> 'ActivePokemon':
-        """Completes the actions that happen when a turn ends
+    def end_turn(self) -> None:
+        self.turns_in_active += 1
 
-        :return: The ActivePokemon after the turn ends
-        :rtype: ActivePokemon
-        """
-        return ActivePokemon(self.pokemon_cards, self.turns_in_active+1, self.damage, self.condition, self.energies)
+    def between_turns(self) -> None:
+        pass
 
-    def between_turns(self) -> 'ActivePokemon':
-        return self
+    def attach_energy(self, energy:EnergyType) -> None:
+        self.energies = self.energies.add_energy(energy)
 
-    def attach_energy(self, energy:EnergyType) -> 'ActivePokemon':
-        """Adds an energy to the card
-
-        :param energy: The type of energy to attach
-        :type energy: EnergyType
-        :return: The ActivePokemon after the energy is attached
-        :rtype: ActivePokemon
-        """
-        return ActivePokemon(self.pokemon_cards, self.turns_in_active, self.damage, self.condition, self.energies.add_energy(energy))
-
-    def retreat(self, energies:EnergyContainer) -> 'ActivePokemon':
-        """Discards the required energies and returns true if it can retreat, otherwise returns false
-
-        :param energies: The energies to discard
-        :type energies: dict[EnergyType,int]
-        :return: The resulting ActivePokemon
-        :rtype: ActivePokemon
-        """
-        return ActivePokemon(self.pokemon_cards, self.turns_in_active, self.damage, self.condition, self.energies.remove_energies(energies))
+    def retreat(self, energies:EnergyContainer) -> None:
+        self.energies = self.energies.remove_energies(energies)
 
     def take_damage(self, amount:int, damage_type:EnergyType) -> 'ActivePokemon':
         total = amount
@@ -81,7 +48,7 @@ class ActivePokemon:
             total -= 20
         if damage_type == self.active_card().get_weakness():
             total += 20
-        return ActivePokemon(self.pokemon_cards, self.turns_in_active, self.damage + total, self.condition, self.energies)
+        self.damage += total
     
     def is_knocked_out(self):
         return self.hp() <= 0
@@ -90,11 +57,6 @@ class ActivePokemon:
         return self.energies
 
     def get_cards(self) -> list[PokemonCard]:
-        """Returns the cards in the active evolution
-
-        :return: The cards in the active evolution
-        :rtype: list[PokemonCard]
-        """
         return list(self.pokemon_cards)
 
 @dataclass(frozen=True)
