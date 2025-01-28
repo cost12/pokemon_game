@@ -3,6 +3,7 @@ from pokemon.pokemon_types import EnergyType, Condition, EnergyContainer
 
 import random
 from dataclasses import dataclass, field
+from queue import Queue
 
 class CantEvolveException(Exception):
     pass
@@ -12,7 +13,7 @@ class NoCardsToDrawException(Exception):
 
 class ActivePokemon:
 
-    def __init__(self, cards:list[PokemonCard], turns:int=0, damage:int=0, conditions:list[Condition]=None, energies:EnergyContainer=None):
+    def __init__(self, cards:list[PokemonCard], turns:int=0, damage:int=0, conditions:list[Condition]|None=None, energies:EnergyContainer|None=None):
         self.pokemon_cards = cards
         self.turns_in_active = turns
         self.damage = damage
@@ -42,12 +43,13 @@ class ActivePokemon:
     def retreat(self, energies:EnergyContainer) -> None:
         self.energies = self.energies.remove_energies(energies)
 
-    def take_damage(self, amount:int, damage_type:EnergyType) -> 'ActivePokemon':
+    def take_damage(self, amount:int, damage_type:EnergyType, apply_weakness_resistance:bool) -> 'ActivePokemon':
         total = amount
-        if damage_type == self.active_card().get_resistance():
-            total -= 20
-        if damage_type == self.active_card().get_weakness():
-            total += 20
+        if apply_weakness_resistance:
+            if damage_type == self.active_card().get_resistance():
+                total -= 20
+            if damage_type == self.active_card().get_weakness():
+                total += 20
         self.damage += total
     
     def is_knocked_out(self):
@@ -73,17 +75,18 @@ class Deck:
         """
         return self.cards
 
-@dataclass(frozen=True)
 class DeckSetup:
-    energies       :tuple[EnergyType]
-    deck           :tuple[PokemonCard]
-    hand           :tuple[PokemonCard]
-    active         :tuple[ActivePokemon]
-    discard        :tuple[PokemonCard]
-    energy_discard :EnergyContainer
-    next_energies  :tuple[EnergyType]
 
-    def next_energy(self) -> EnergyType:
+    def __init__(self, energies:list[EnergyType], deck:Queue[PokemonCard], hand:list[PokemonCard], active:list[ActivePokemon]|None=None, discard:list[PokemonCard]|None=None, energy_discard:EnergyContainer|None=None, next_energies:Queue[EnergyType]|None=None):
+        self.energies = energies
+        self.deck = deck
+        self.hand = hand
+        self.active = active if active is not None else list[ActivePokemon]()
+        self.discard = discard if discard is not None else list[PokemonCard]()
+        self.energy_discard = energy_discard if discard is not None else EnergyContainer()
+        self.next_energies = next_energies if next_energies is not None else Queue[EnergyType]()
+
+    def __decide_next_energy(self) -> EnergyType:
         return random.choice(self.energies)
 
     def bench(self) -> list[PokemonCard]:
@@ -92,103 +95,76 @@ class DeckSetup:
     def bench_size(self) -> int:
         return len(self.active) - 1
 
-    def start_turn(self, get_energy:bool=True, draw_card:bool=True) -> 'DeckSetup':
-        next = list(self.next_energies)
-        hand = list(self.hand)
-        deck = list(self.deck)
+    def start_turn(self, get_energy:bool=True, draw_card:bool=True) -> None:
         if get_energy:
-            next.append(self.next_energy())
+            self.next_energies.put(self.__decide_next_energy())
         if draw_card:   
-            card = deck.pop(0)
-            hand.append(card)
-        return DeckSetup(self.energies, tuple(deck), tuple(hand), self.active, self.discard, self.energy_discard, tuple(next))
+            card = self.deck.get()
+            self.hand.append(card)
 
-    def between_turns(self) -> 'DeckSetup':
-        active = list(self.active)
-        for i in range(len(active)):
-            active[i] = active[i].between_turns()
-        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
+    def between_turns(self) -> None:
+        for active in self.active:
+            active.between_turns()
 
-    def end_turn(self) -> 'DeckSetup':
-        active = list(self.active)
-        for i in range(len(active)):
-            active[i] = active[i].end_turn()
-        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
+    def end_turn(self) -> None:
+        for active in self.active:
+            active.end_turn()
 
-    def play_card_from_hand(self, hand_index:int) -> 'DeckSetup':
-        discard = list(self.discard)
-        hand = list(self.hand)
-        card = hand.pop(hand_index)
-        discard.append(card)
-        return DeckSetup(self.energies, self.deck, tuple(hand), self.active, tuple(discard), self.energy_discard, self.next_energies)
+    def play_card_from_hand(self, hand_index:int) -> None:
+        card = self.hand.pop(hand_index)
+        self.discard.append(card)
 
-    def evolve(self, hand_index:int, active_index:int) -> 'DeckSetup':
-        active = list(self.active)
-        hand = list(self.hand)
-        card = hand.pop(hand_index)
-        active[active_index] = active[active_index].evolve(card)
-        return DeckSetup(self.energies, self.deck, tuple(hand), tuple(active), self.discard, self.energy_discard, self.next_energies)
+    def evolve(self, hand_index:int, active_index:int) -> None:
+        card = self.hand.pop(hand_index)
+        self.active[active_index].evolve(card)
 
-    def retreat(self, active_index:int, energies:EnergyContainer) -> 'DeckSetup':
-        if active_index == 0: return self
-        active = list(self.active)
-        to_bench = active[0].retreat(energies)
-        energy_discard = self.energy_discard.add_energies(energies)
-        active[0] = active[active_index]
-        active[active_index] = to_bench
-        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, tuple(energy_discard), self.next_energies)
-
-    def take_damage(self, amount:int, damage_type:EnergyType) -> 'DeckSetup':
-        active = list(self.active)
-        active[0] = active[0].take_damage(amount, damage_type)
-        if active[0].is_knocked_out():
-            return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies).discard_from_active(0)
-        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
-
-    def shuffle_hand_into_deck(self) -> 'DeckSetup':
-        deck = list(self.deck)
-        deck.extend(self.hand)
-        random.shuffle(deck)
-        return DeckSetup(self.energies, tuple(deck), tuple(), self.active, self.discard, self.energy_discard, self.next_energies)
-
-    def discard_from_active(self, active_index:int) -> 'DeckSetup':
-        discard = list(discard)
-        active = list(self.active)
-        discard.extend(active[active_index].get_cards())
-        energies = active[active_index].get_energies()
-        energy_discard = self.energy_discard.add_energies(energies)
+    def retreat(self, active_index:int, energies:EnergyContainer) -> None:
         if active_index == 0:
-            active[active_index] = None
+            return
+        to_bench = self.active[0]
+        to_bench.retreat(energies)
+        self.energy_discard = self.energy_discard.add_energies(energies)
+        self.active[0] = self.active[active_index]
+        self.active[active_index] = to_bench
+
+    def take_damage(self, amount:int, damage_type:EnergyType, *, active_index:int=0, apply_weakness_resistance:bool=True) -> None:
+        self.active[active_index].take_damage(amount, damage_type, apply_weakness_resistance)
+        if self.active[active_index].is_knocked_out():
+            self.discard_from_active(active_index)
+
+    def shuffle_hand_into_deck(self) -> None:
+        cards = list(self.hand)
+        self.hand.clear()
+        while not self.deck.empty():
+            cards.append(self.deck.get())
+        random.shuffle(cards)
+        for card in cards:
+            self.deck.put(card)
+
+    def discard_from_active(self, active_index:int) -> None:
+        self.discard.extend(self.active[active_index].get_cards())
+        energies = self.active[active_index].get_energies()
+        self.energy_discard = self.energy_discard.add_energies(energies)
+        if active_index == 0:
+            self.active[active_index] = None
         else:
-            active.pop(active_index)
-        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), tuple(discard), tuple(energy_discard), self.next_energies)
+            self.active.pop(active_index)
 
-    def attach_energy(self, active_index:int) -> 'DeckSetup':
-        next_energies = list(self.next_energies)
-        active = list(self.active)
-        energy_type = next_energies.pop(0)
-        active[active_index] = active[active_index].attach_energy(energy_type)
-        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, tuple(next_energies))
+    def attach_energy(self, active_index:int) -> None:
+        energy_type = self.next_energies.get()
+        self.active[active_index].attach_energy(energy_type)
 
-    def delete_energy(self) -> 'DeckSetup':
-        next_energies = list(self.next_energies)
-        next_energies.pop(0)
-        return DeckSetup(self.energies, self.deck, self.hand, self.active, self.discard, self.energy_discard, tuple(next_energies))
+    def delete_energy(self) -> None:
+        self.next_energies.get()
 
-    def play_basic(self, hand_index:int) -> 'DeckSetup':
-        active = list(self.active)
-        hand = list(self.hand)
-        active.append(ActivePokemon((self.hand[hand_index],)))
-        hand.pop(hand_index)
-        return DeckSetup(self.energies, self.deck, tuple(hand), tuple(active), self.discard, self.energy_discard, self.next_energies)
+    def play_basic(self, hand_index:int) -> None:
+        card = self.hand.pop(hand_index)
+        self.active.append(ActivePokemon([card]))
 
-    def replace_starter(self, active_index:int) -> 'DeckSetup':
+    def replace_starter(self, active_index:int) -> None:
         if active_index > 0:
-            active = list(self.active)
-            active[0] = active[active_index]
-            active.pop(active_index)
-            return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
-        return DeckSetup(self.energies, self.deck, self.hand, tuple(active), self.discard, self.energy_discard, self.next_energies)
+            card = self.active.pop(active_index)
+            self.active[0] = card
 
 @dataclass(frozen=True)
 class OpponentDeckView:
