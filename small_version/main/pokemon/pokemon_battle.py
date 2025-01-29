@@ -212,12 +212,16 @@ def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
         active.append(a.copy())
     return OwnDeckView(active, list(deck.hand), len(deck.deck), deque(deck.next_energies), list(deck.discard), deck.energy_discard)
 
-@dataclass(frozen=True)
 class Turn:
-    used_supporter :bool = False
-    retreated      :bool = False
-    energy_used    :bool = False
-    attacked       :bool = False
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self) -> None:
+        self.used_supporter = False
+        self.retreated      = False
+        self.energy_used    = False
+        self.attacked       = False
 
 @dataclass(frozen=True)
 class Rules:
@@ -254,18 +258,19 @@ class Rules:
                 card_names[card.name()] = 1
         return has_basic or not self.BASIC_REQUIRED
 
-@dataclass(frozen=True)
 class BattleState:
-    deck1           :DeckSetup
-    deck2           :DeckSetup
-    rules           :Rules
-    turn_number     :int = 0
-    next_move_team1 :bool = True
-    team1_points    :int = 0
-    team2_points    :int = 0
-    team1_ready     :bool = False
-    team2_ready     :bool = False
-    current_turn    :Turn = field(default=Turn)
+
+    def __init__(self, deck1:DeckSetup, deck2:DeckSetup, rules:Rules|None, *, turn_number:int=0, next_move_team1:bool=True, team1_points:int=0, team2_points:int=0, team1_ready:bool=False, team2_ready:bool=False, current_turn:Turn|None=None):
+        self.deck1 = deck1
+        self.deck2 = deck2
+        self.rules = rules if rules is not None else Rules()
+        self.turn_number = turn_number
+        self.next_move_team1 = self.next_move_team1
+        self.team1_points = team1_points
+        self.team2_points = team2_points
+        self.team1_ready = team1_ready
+        self.team2_ready = team2_ready
+        self.current_turn = current_turn if current_turn is not None else Turn()
 
     def team1_move(self) -> bool:
         return self.next_move_team1
@@ -278,10 +283,14 @@ class BattleState:
             return self.deck1
         return self.deck2
     
-    def update_current_deck(self, deck:DeckSetup) -> 'BattleState':
+    def defending_deck(self) -> DeckSetup:
         if self.team1_move():
-            return BattleState(deck, self.deck2, self.rules, self.turn_number, self.next_move_team1, self.team1_points, self.team2_points, self.team1_ready, self.team2_ready, self.current_turn)
-        return BattleState(self.deck1, deck, self.rules, self.turn_number, self.next_move_team1, self.team1_points, self.team2_points, self.team1_ready, self.team2_ready, self.current_turn)
+            return self.deck2
+        return self.deck1
+    
+    def need_to_replace_active(self) -> bool:
+        return len(self.deck1.active) == 0 or self.deck1.active[0] is None or \
+               len(self.deck2.active) == 0 or self.deck2.active[0] is None
 
     def is_over(self) -> bool:
         return self.team1_points >= self.rules.POINTS_TO or self.team2_points >= self.rules.POINTS_TO or \
@@ -290,21 +299,51 @@ class BattleState:
     
     def battle_going(self) -> bool:
         return self.team1_ready and self.team2_ready and not self.is_over()
+    
+    def is_valid_basic_index(self, index:int, deck:DeckSetup) -> bool:
+        return index >= 0 and index < len(deck.hand) and deck.hand[index].is_basic()
+    
+    def is_valid_hand_index(self, index:int, deck:DeckSetup) -> bool:
+        return index >= 0 and index < len(deck.hand)
+    
+    def is_valid_active_index(self, index:int, deck:DeckSetup) -> bool:
+        return index >= 0 and index < len(deck.active)
+    
+    def is_valid_bench_index(self, index:int, deck:DeckSetup) -> bool:
+        return index > 0 and index < len(deck.active)
+    
+    def start_turn(self, generate_energy:bool=True) -> None:
+        deck = self.current_deck()
+        draw_card = len(deck.deck) > 0 and len(deck.hand) < self.rules.MAX_HAND_SIZE
+        deck.start_turn(generate_energy, draw_card)
+        self.current_turn.energy_used = not generate_energy
+
+    def end_turn(self) -> bool:
+        if self.battle_going():
+            if not self.current_turn.energy_used:
+                self.current_deck().delete_energy()
+            self.current_deck().end_turn()
+            self.next_move_team1 = not self.next_move_team1
+            self.turn_number += 1
+            self.current_turn.reset()
+            self.between_turns()
+            self.start_turn()
+            return True
+        return False
+    
+    def between_turns(self) -> None:
+        self.deck1.between_turns()
+        self.deck2.between_turns()
 
 class Action:
-    """Represents an action a player can make in a battle
-    Has no state, but manipulates battle state
-    Will likely need to break Battle into Battle and BattleState where Battle contains BattleState and also Actions that are valid for the battle
-    Also, maybe a Rules class or something to hold things like DECK_SIZE, DUPLICATE_LIMIT, etc
-    """
 
-    def action(self, battle:BattleState, inputs:tuple) -> tuple[bool, BattleState]:
+    def action(self, battle:BattleState, inputs:tuple) -> bool:
         pass
 
     def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
         pass
 
-    def is_valid_raw(self, inputs:tuple) -> tuple[bool, tuple]:
+    def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
         pass
 
     def could_act(self, battle:BattleState) -> bool:
@@ -317,20 +356,22 @@ class Action:
         pass
 
 class SetupAction(Action):
-    def action(self, battle:BattleState, inputs:tuple[bool, int]) -> tuple[bool, BattleState]:
+    def action(self, battle:BattleState, inputs:tuple[bool, int]) -> bool:
         if not self.is_valid(battle, inputs):
-            return False, battle
+            return False
         for i in range(1,len(inputs)):
             subtract = 0
             for j in range(i):
                 if inputs[j] < inputs[i]:
                     subtract += 1
-            battle = battle.update_current_deck(battle.current_deck().play_basic(inputs[i]-subtract))
+            battle.current_deck().play_basic(inputs[i]-subtract)
         if inputs[0]:
-            battle = BattleState(battle.deck1, battle.deck2, battle.rules, battle.turn_number, battle.next_move_team1, battle.team1_points, battle.team2_points, True, battle.team2_ready, battle.current_turn)
+            battle.team1_ready = True
         else:
-            battle = BattleState(battle.deck1, battle.deck2, battle.rules, battle.turn_number, battle.next_move_team1, battle.team1_points, battle.team2_points, battle.team1_ready, True, battle.current_turn)
-        return True, battle
+            battle.team2_ready = True
+        if battle.team1_ready and battle.team2_ready:
+            battle.start_turn(False)
+        return True
     
     def is_valid(self, battle:BattleState, inputs:tuple[bool,int]) -> bool:
         is_team1 = inputs[0]
@@ -342,7 +383,7 @@ class SetupAction(Action):
             if index in indices:
                 return False
             indices.add(index)
-            if index < 0 or index >= len(battle.current_deck().hand) or not battle.current_deck().hand[index].is_basic():
+            if not battle.is_valid_basic_index(index, battle.current_deck()):
                 return False
         if len(inputs) > 0 and len(inputs) <= battle.rules.BENCH_SIZE + 1:
             return True
@@ -365,6 +406,289 @@ class SetupAction(Action):
     
     def action_description(self) -> str:
         return "Pick a starter and any bench pokemon to start"
+
+class PlayBasicAction(Action):
+
+    def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        hand_index = inputs[0]
+        deck = battle.current_deck()
+        if self.is_valid(inputs):
+            deck.play_basic(hand_index)
+            return True
+        return False
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.battle_going() or battle.need_to_replace_active():
+            return False
+        hand_index = inputs[0]
+        deck = battle.current_deck()
+        return battle.is_valid_basic_index(hand_index, deck) and deck.bench_size() < battle.rules.BENCH_SIZE
+
+    def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
+        if len(inputs) == 1:
+            try:
+                hand_index = int(inputs[0])
+            except ValueError:
+                return False, None
+            return True, (hand_index,)
+        return False, None
+
+    def could_act(self, battle:BattleState) -> bool:
+        deck = battle.current_deck()
+        for hand_index in range(len(deck.hand)):
+            if self.is_valid(battle, hand_index):
+                return True
+        return False
+
+    def action_name(self) -> str:
+        return "play_basic"
+
+    def action_description(self) -> str:
+        return "Place a basic from the hand to the bench"
+
+class EvolveAction(Action):
+    def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if self.is_valid(battle, inputs):
+            hand_index, active_index = inputs
+            deck = battle.current_deck()
+            deck.evolve(hand_index, active_index)
+            return True
+        return False
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.battle_going() or battle.need_to_replace_active():
+            return False
+        hand_index, active_index = inputs
+        deck = battle.current_deck()
+        valid1 = battle.is_valid_hand_index(hand_index, deck)
+        valid2 = battle.is_valid_active_index(active_index, deck)
+        if valid1 and valid2:
+            if deck.active[active_index].turns_in_active >= battle.rules.TURNS_TO_EVOLVE and \
+               deck.hand[hand_index].evolves_from() == deck.active[active_index].active_card().pokemon:
+                return True
+        return False
+
+    def is_valid_raw(self, inputs:tuple) -> tuple[bool, tuple]:
+        if len(inputs) == 2:
+            try:
+                hand_index =   int(inputs[0])
+                active_index = int(inputs[1])
+            except ValueError:
+                return False, None
+            return True, (hand_index, active_index)
+        return False, None
+
+    def could_act(self, battle:BattleState) -> bool:
+        deck = battle.current_deck()
+        for hand_index in range(len(deck.hand)):
+            for active_index in range(len(deck.active)):
+                if self.is_valid(battle, (hand_index, active_index)):
+                    return True
+        return False
+
+    def action_name(self) -> str:
+        return "evolve"
+
+    def action_description(self) -> str:
+        return "Play a card from the hand to evolve an active pokemon"
+
+class AttackAction(Action):
+    def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if self.is_valid(battle, inputs):
+            attack_index = inputs[0]
+            deck = battle.current_deck()
+            defending_deck = battle.defending_deck()
+            attack = deck.active[0].active_card().attacks[attack_index]
+
+            attacked = defending_deck.active[0].active_card()
+            defending_deck.take_damage(attack.base_damage, deck.active[0].active_card().get_energy_type())
+            battle.current_turn.attacked = True
+            if defending_deck.active[0] is None:
+                if battle.team1_turn():
+                    battle.team1_points += 1 if attacked.level <= 100 else 2
+                else:
+                    battle.team2_points += 1 if attacked.level <= 100 else 2
+                self.next_move_team1 = not self.next_move_team1
+            else:
+                battle.end_turn()
+            return True
+        return False
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.need_to_replace_active() and battle.battle_going():
+            deck = battle.current_deck()
+            attack_index = inputs[0]
+            if attack_index >= 0 and attack_index < len(deck.active[0].active_card().attacks):
+                return deck.active[0].energies.at_least_as_big(deck.active[0].active_card().attacks[attack_index].energy_cost)
+        return False
+
+    def is_valid_raw(self, inputs:tuple) -> tuple[bool, tuple]:
+        if len(inputs) == 1:
+            try:
+                attack_index = int(inputs[0])
+            except ValueError:
+                return False, None
+            return True, (attack_index,)
+        return False, None
+
+    def could_act(self, battle:BattleState) -> bool:
+        deck = battle.current_deck()
+        for attack_index in range(len(deck.active[0].active_card().attacks)):
+            if self.is_valid(battle, (attack_index,)):
+                return True
+        return False
+
+    def action_name(self) -> str:
+        return "attack"
+
+    def action_description(self) -> str:
+        return "Use an attack"
+
+class RetreatAction(Action):
+    def action(self, battle:BattleState, inputs:tuple[int, EnergyContainer]) -> bool:
+        if self.is_valid(battle, inputs):
+            active_index, energies = inputs
+            deck = battle.current_deck()
+            deck.retreat(active_index, energies)
+            return True
+        return False
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int, EnergyContainer]) -> bool:
+        if not battle.battle_going() or battle.need_to_replace_active():
+            return False
+        active_index, energies = inputs
+        deck = battle.current_deck()
+        if battle.is_valid_active_index(active_index, deck):
+            if deck.bench_size() > 0 and deck.active[0].active_card().retreat_cost == energies.size() and deck.active[0].energies.at_least_as_big(energies):
+                return True
+        return False
+
+    def is_valid_raw(self, inputs:tuple[str,...]) -> tuple[bool, tuple]:
+        if len(inputs) >= 1:
+            try:
+                active_index = int(inputs[0])
+            except ValueError:
+                return False, None
+            energies = EnergyContainer()
+            for token in inputs[1:]:
+                if token.upper() in EnergyType:
+                    energies = energies.add_energy(EnergyType[token.upper()])
+                else:
+                    return False, None
+            return True, (active_index, energies)
+        return False, None
+
+    def could_act(self, battle:BattleState) -> bool:
+        if not battle.battle_going() or battle.need_to_replace_active():
+            return False
+        deck = battle.current_deck()
+        return deck.active[0].active_card().retreat_cost <= deck.active[0].energies.size()
+
+    def action_name(self) -> str:
+        return "retreat"
+
+    def action_description(self) -> str:
+        return "Swap the active pokemon for a bench pokemon"
+
+class PlaceEnergyAction(Action):
+    def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if self.is_valid(battle, inputs):
+            active_index = inputs[0]
+            deck = battle.current_deck()
+            deck.attach_energy(active_index)
+            battle.current_turn.energy_used = True
+            return True
+        return False
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.battle_going() and not battle.need_to_replace_active():
+            return False
+        active_index = inputs[0]
+        deck = battle.current_deck()
+        return battle.is_valid_active_index(active_index, deck) and not battle.current_turn.energy_used
+
+    def is_valid_raw(self, inputs:tuple[int]) -> tuple[bool, tuple]:
+        if len(inputs) == 1:
+            try:
+                active_index = int(inputs[1])
+            except ValueError:
+                return False, None
+            return True, (active_index,)
+        return False, None
+
+    def could_act(self, battle:BattleState) -> bool:
+        deck = battle.current_deck()
+        for i in range(len(deck.active)):
+            if self.is_valid(battle, (i,)):
+                return True
+        return False
+
+    def action_name(self) -> str:
+        return "place_energy"
+
+    def action_description(self) -> str:
+        return "Place an energy on one of the active pokemon"
+
+class SelectAction(Action):
+    def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if self.is_valid(battle, inputs):
+            bench_index = inputs[0]
+            deck = battle.current_deck()
+            deck.replace_starter(bench_index)
+            if battle.need_to_replace_active():
+                self.next_move_team1 = not self.next_move_team1
+            else:
+                self.next_move_team1 = battle.team1_turn()
+                if battle.current_turn.attacked:
+                    battle.end_turn()
+            return True
+        return False  
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        bench_index = inputs[0]
+        deck = battle.current_deck()
+        return battle.need_to_replace_active() and battle.is_valid_bench_index(bench_index, deck)
+
+    def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
+        if len(inputs) == 1:
+            try:
+                index = int(inputs[0])
+            except ValueError:
+                return False, None
+            return True, (index,)
+        return False, None
+
+    def could_act(self, battle:BattleState) -> bool:
+        deck = battle.current_deck()
+        for i in range(1, len(deck.active)):
+            if self.is_valid(battle, (i,)):
+                return True
+        return False
+
+    def action_name(self) -> str:
+        return "select"
+
+    def action_description(self) -> str:
+        return "Select a new active pokemon"
+
+class EndTurnAction(Action):
+    def action(self, battle:BattleState, inputs:tuple) -> bool:
+        battle.end_turn()
+
+    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
+        return battle.battle_going()
+
+    def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
+        return len(inputs) == 0
+
+    def could_act(self, battle:BattleState) -> bool:
+        return self.is_valid(battle)
+
+    def action_name(self) -> str:
+        return "end_turn"
+
+    def action_description(self) -> str:
+        return "End the turn"
 
 class Battle:
     """Represents a battle between two decks of cards
@@ -389,248 +713,5 @@ class Battle:
             return success
         return False
     
-    def team1_setup(self, to_play:tuple[int]) -> bool:
-        if self.team1_ready:
-            return False
-        self.team1_ready = self.__setup(to_play, self.deck1)
-        if self.team1_ready and self.team2_ready:
-            self.start_turn(False)
-        return self.team1_ready
-
-    def team2_setup(self, to_play:tuple[int]) -> bool:
-        if self.team2_ready:
-            return False
-        self.team2_ready = self.__setup(to_play, self.deck2)
-        if self.team1_ready and self.team2_ready:
-            self.start_turn(False)
-        return self.team2_ready
-
-    def __verify_basic_index(self, index:int, deck:DeckSetup) -> bool:
-        return index >= 0 and index < len(deck.hand) and deck.hand[index].is_basic()
-    
-    def __verify_hand_index(self, index:int, deck:DeckSetup) -> bool:
-        return index >= 0 and index < len(deck.hand)
-    
-    def __verify_active_index(self, index:int, deck:DeckSetup) -> bool:
-        return index >= 0 and index < len(deck.active)
-    
-    def __verify_bench_index(self, index:int, deck:DeckSetup) -> bool:
-        return index > 0 and index < len(deck.active)
-
-    def __current_deck(self) -> DeckSetup:
-        if self.team1_move():
-            return self.deck1
-        return self.deck2
-
-    def __defending_deck(self) -> DeckSetup:
-        if self.team1_move():
-            return self.deck2
-        return self.deck1
-    
-    def need_to_replace_active(self) -> bool:
-        return len(self.deck1.active) == 0 or self.deck1.active[0] is None or \
-               len(self.deck2.active) == 0 or self.deck2.active[0] is None
-
-    def play_card(self, hand_index:int) -> bool:
-        return False
-    
-    def can_play_basic(self, hand_index:int) -> bool:
-        if not self.__battle_going() or self.need_to_replace_active():
-            return False
-        deck = self.__current_deck()
-        return self.__verify_basic_index(hand_index, deck) and deck.bench_size() < deck.BENCH_SIZE
-
-    def could_play_basic(self) -> bool:
-        deck = self.__current_deck()
-        for hand_index in range(len(deck.hand)):
-            if self.can_play_basic(hand_index):
-                return True
-        return False
-
-    def play_basic(self, hand_index:int) -> bool:
-        deck = self.__current_deck()
-        if self.can_play_basic(hand_index):
-            deck.play_basic(hand_index)
-            return True
-        return False
-    
-    def can_evolve(self, hand_index:int, active_index:int) -> bool:
-        if not self.__battle_going() or self.need_to_replace_active():
-            return False
-        deck = self.__current_deck()
-        valid1 = self.__verify_hand_index(hand_index, deck)
-        valid2 = self.__verify_active_index(active_index, deck)
-        if valid1 and valid2:
-            if deck.active[active_index].turns_in_active >= self.TURNS_TO_EVOLVE and \
-               deck.hand[hand_index].evolves_from() == deck.active[active_index].active_card().pokemon:
-                return True
-        return False
-
-    def could_evolve(self) -> bool:
-        deck = self.__current_deck()
-        for hand_index in range(len(deck.hand)):
-            for active_index in range(len(deck.active)):
-                if self.can_evolve(hand_index, active_index):
-                    return True
-        return False
-
-    def evolve(self, hand_index:int, active_index:int) -> bool:
-        if self.can_evolve(hand_index, active_index):
-            deck = self.__current_deck()
-            deck.evolve(hand_index, active_index)
-            return True
-        return False
-
-    def can_retreat(self, active_index:int, energies:EnergyContainer) -> bool:
-        if not self.__battle_going() or self.need_to_replace_active():
-            return False
-        deck = self.__current_deck()
-        valid = self.__verify_active_index(active_index, deck)
-        if valid:
-            if deck.bench_size() > 0 and deck.active[0].active_card().retreat_cost == energies.size() and deck.active[0].energies.at_least_as_big(energies):
-                return True
-        return False
-
-    def could_retreat(self) -> bool:
-        if not self.__battle_going() or self.need_to_replace_active():
-            return False
-        deck = self.__current_deck()
-        return deck.active[0].active_card().retreat_cost <= deck.active[0].energies.size()
-
-    def retreat(self, active_index:int, energies:EnergyContainer) -> bool:
-        if self.can_retreat(active_index, energies):
-            deck = self.__current_deck()
-            deck.retreat(active_index, energies)
-            return True
-        return False
-
-    def can_attack(self, attack_index:int) -> bool:
-        if not self.need_to_replace_active() and self.__battle_going():
-            deck = self.__current_deck()
-            if attack_index >= 0 and attack_index < len(deck.active[0].active_card().attacks):
-                return deck.active[0].energies.at_least_as_big(deck.active[0].active_card().attacks[attack_index].energy_cost)
-        return False
-
-    def could_attack(self) -> bool:
-        deck = self.__current_deck()
-        for attack_index in range(len(deck.active[0].active_card().attacks)):
-            if self.can_attack(attack_index):
-                return True
-        return False
-
-    def attack(self, attack_index:int) -> bool:
-        deck = self.__current_deck()
-        if self.can_attack(attack_index):
-            attack = deck.active[0].active_card().attacks[attack_index]
-
-            attacked = self.__defending_deck().active[0].active_card()
-            self.__defending_deck().take_damage(attack.base_damage, deck.active[0].active_card().get_energy_type())
-            self.turn.attacked = True
-            if self.__defending_deck().active[0] is None:
-                if self.team1_turn():
-                    self.team1_points += 1 if attacked.level <= 100 else 2
-                else:
-                    self.team2_points += 1 if attacked.level <= 100 else 2
-                self.next_move_team1 = not self.next_move_team1
-            else:
-                self.end_turn()
-            return True
-        return False
-
-    def use_ability(self, ability_index:int) -> bool:
-        return False
-
-    def can_select(self, index:int) -> bool:
-        deck = self.__current_deck()
-        return self.need_to_replace_active() and self.__verify_bench_index(index, deck)
-
-    def could_select(self) -> bool:
-        deck = self.__current_deck()
-        for i in range(1, len(deck.active)):
-            if self.can_select(i):
-                return True
-        return False
-
-    def select(self, index:int) -> bool:
-        if self.can_select(index):
-            deck = self.__current_deck()
-            deck.replace_starter(index)
-            if self.need_to_replace_active():
-                self.next_move_team1 = not self.next_move_team1
-            else:
-                self.next_move_team1 = self.team1_turn()
-                if self.turn.attacked:
-                    self.end_turn()
-            return True
-        return False
-
-    def can_place_energy(self, active_index:int) -> bool:
-        if not self.__battle_going() and not self.need_to_replace_active():
-            return False
-        deck = self.__current_deck()
-        valid = self.__verify_active_index(active_index, deck)
-        return valid and not self.turn.energy_used
-
-    def could_place_energy(self) -> bool:
-        deck = self.__current_deck()
-        for i in range(len(deck.active)):
-            if self.can_place_energy(i):
-                return True
-        return False
-
-    def place_energy(self, active_index:int) -> bool:
-        deck = self.__current_deck()
-        if self.can_place_energy(active_index):
-            deck.attach_energy(active_index)
-            self.turn.energy_used = True
-            return True
-        return False
-
-    def between_turns(self) -> None:
-        self.deck1.between_turns()
-        self.deck2.between_turns()
-
-    def start_turn(self, generate_energy:bool=True) -> None:
-        deck = self.__current_deck()
-        draw_card = len(deck.deck) > 0 and len(deck.hand) < self.MAX_HAND_SIZE
-        deck.start_turn(generate_energy, draw_card)
-        self.turn.energy_used = not generate_energy
-
-    def could_end_turn(self) -> bool:
-        return self.__battle_going()
-
-    def end_turn(self) -> bool:
-        if self.could_end_turn():
-            if not self.turn.energy_used:
-                self.__current_deck().delete_energy()
-            self.__current_deck().end_turn()
-            self.next_move_team1 = not self.next_move_team1
-            self.turn_number += 1
-            self.turn.reset()
-            self.between_turns()
-            self.start_turn()
-            return True
-        return False
-    
     def available_actions(self) -> list[str]:
-        if not self.__battle_going():
-            if not self.is_over():
-                return ['play']
-            return []
-        if self.could_select():
-            return ['select', 'new_active']
-        moves = []
-        if self.could_play_basic():
-            moves.append('play_basic')
-        if self.could_retreat():
-            moves.append('retreat')
-        if self.could_evolve():
-            moves.append('evolve')
-        if self.could_attack():
-            moves.append('attack')
-        if self.could_place_energy():
-            moves.append('place_energy')
-        if self.could_end_turn():
-            moves.append('end_turn')
-        return moves
-    
+        return [name for name,action in self.actions.items() if action.could_act(self.state)]                

@@ -224,27 +224,9 @@ class CommandLineBattleController(BattleController):
                     return True, "evolve", (hand_index, active_index)
                 return False, "evolve", "requires 2 arguments"                    
             case "retreat":
-                if len(tokens) >= 2:
-                    try:
-                        active_index = int(tokens[1])
-                    except ValueError:
-                        return False, "retreat", "first arg is int"
-                    energies = EnergyContainer()
-                    for token in tokens[2:]:
-                        if token.upper() in EnergyType:
-                            energies = energies.add_energy(EnergyType[token.upper()])
-                        else:
-                            return False, "retreat", f"invalid energy type: {token}"
-                    return True, "retreat", (active_index, energies)
-                return False, "retreat", "requires at least 2 arguments"
+                pass
             case "attack":
-                if len(tokens) == 2:
-                    try:
-                        attack_index = int(tokens[1])
-                    except ValueError:
-                        return False, "attack", "requires an int"
-                    return True, "attack", (attack_index,)
-                return False, "attack", "requires an argument"
+                pass
             case "use_ability":
                 if len(tokens) == 3:
                     try:
@@ -255,21 +237,9 @@ class CommandLineBattleController(BattleController):
                     return True, "use_ability", (active_index, ability_index)
                 return False, "use_ability", "requires an argument"
             case "select":
-                if len(tokens) == 2:
-                    try:
-                        index = int(tokens[1])
-                    except ValueError:
-                        return False, "select", "requires an int"
-                    return True, "select", (index,)
-                return False, "select", "requires an argument"
+                pass
             case "place_energy":
-                if len(tokens) == 2:
-                    try:
-                        active_index = int(tokens[1])
-                    except ValueError:
-                        return False, "place_energy", "requires an int"
-                    return True, "place_energy", (active_index,)
-                return False, "place_energy", "requires an argument"
+                pass
             case "end_turn":
                 if len(tokens) == 1:
                     return True, "end_turn", (None,)
