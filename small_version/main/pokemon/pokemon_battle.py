@@ -80,14 +80,25 @@ class Deck:
 
 class DeckSetup:
 
-    def __init__(self, energies:list[EnergyType], deck:deque[PokemonCard], hand:list[PokemonCard], active:list[ActivePokemon]|None=None, discard:list[PokemonCard]|None=None, energy_discard:EnergyContainer|None=None, next_energies:deque[EnergyType]|None=None):
-        self.energies = energies
-        self.deck = deck
-        self.hand = hand
+    def __init__(self, deck:Deck, initial_hand_size:int, initial_energies:int, shuffle:bool=True,*, active:list[ActivePokemon]|None=None, discard:list[PokemonCard]|None=None, energy_discard:EnergyContainer|None=None):
+        self.energies = list(deck.energies)
+        cards = deck.cards
+        if shuffle:
+            cards = self.__shuffle_deck_to_start(cards)
+        self.deck = deque(cards[initial_hand_size:])
+        self.hand = cards[0:initial_hand_size]
         self.active = active if active is not None else list[ActivePokemon]()
         self.discard = discard if discard is not None else list[PokemonCard]()
         self.energy_discard = energy_discard if discard is not None else EnergyContainer()
-        self.next_energies = next_energies if next_energies is not None else deque[EnergyType]()
+        self.next_energies = deque([self.__decide_next_energy() for _ in range(initial_energies)])
+
+    def __shuffle_deck_to_start(cards:list[PokemonCard]) -> list[PokemonCard]:
+        basics = [card for card in cards if card.is_basic()]
+        starter = random.choice(basics)
+        cards.remove(starter)
+        random.shuffle(cards)
+        cards.insert(0,starter)
+        return cards
 
     def __decide_next_energy(self) -> EnergyType:
         return random.choice(self.energies)
@@ -234,6 +245,7 @@ class Rules:
     INITIAL_HAND_SIZE :int  = 5
     MAX_HAND_SIZE     :int  = 10
     FUTURE_ENERGIES   :int  = 1
+    SHUFFLE           :bool = False
 
     def is_valid_deck(self, deck:Deck) -> bool:
         """Checks whether a deck is valid for use in a battle
@@ -260,12 +272,12 @@ class Rules:
 
 class BattleState:
 
-    def __init__(self, deck1:DeckSetup, deck2:DeckSetup, rules:Rules|None, *, turn_number:int=0, next_move_team1:bool=True, team1_points:int=0, team2_points:int=0, team1_ready:bool=False, team2_ready:bool=False, current_turn:Turn|None=None):
-        self.deck1 = deck1
-        self.deck2 = deck2
+    def __init__(self, deck1:Deck, deck2:Deck, rules:Rules|None, *, turn_number:int=0, next_move_team1:bool=True, team1_points:int=0, team2_points:int=0, team1_ready:bool=False, team2_ready:bool=False, current_turn:Turn|None=None):
         self.rules = rules if rules is not None else Rules()
+        self.deck1 = DeckSetup(deck1, rules.INITIAL_HAND_SIZE, rules.SHUFFLE)
+        self.deck2 = DeckSetup(deck2, rules.INITIAL_HAND_SIZE, rules.SHUFFLE)
         self.turn_number = turn_number
-        self.next_move_team1 = self.next_move_team1
+        self.next_move_team1 = next_move_team1
         self.team1_points = team1_points
         self.team2_points = team2_points
         self.team1_ready = team1_ready
@@ -715,3 +727,25 @@ class Battle:
     
     def available_actions(self) -> list[str]:
         return [name for name,action in self.actions.items() if action.could_act(self.state)]                
+
+def standard_actions() -> dict[str, Action]:
+    actions = list[Action]([
+        SetupAction(),
+        PlayBasicAction(),
+        EvolveAction(),
+        AttackAction(),
+        RetreatAction(),
+        PlaceEnergyAction(),
+        SelectAction(),
+        EndTurnAction()
+    ])
+    return {action.action_name():action for action in actions}
+
+def battle_factory(deck1:Deck, deck2:Deck, rules:Rules|None=None, actions:dict[str,Action]|None=None):
+    if rules is None:
+        rules = Rules()
+    if actions is None:
+        actions = standard_actions()
+    state = BattleState(deck1, deck2, rules)
+    return Battle(actions, state)
+    

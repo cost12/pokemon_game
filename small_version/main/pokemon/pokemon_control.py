@@ -194,63 +194,11 @@ class CommandLineBattleController(BattleController):
             self.__prompt_command(user_input, own_deck, opponent_deck, {"play x1 ... xn": "Play the cards at index x1 and ... xn from your hand to the active spot"})
             user_input = input("\nSelect your action: ")
         return self.__parse_setup(user_input)
-    
-    def __validate_move(self, input_str:str) -> tuple[bool,str,tuple|str]:
-        tokens = input_str.split(" ")
-        match tokens[0]:
-            case "play_card":
-                if len(tokens) == 2:
-                    try:
-                        hand_index = int(tokens[1])
-                    except ValueError:
-                        return False, "play_card", "requires int"
-                    return True, "play_card", (hand_index,)
-                return False, "play_card", "requires one argument"
-            case "play_basic":
-                if len(tokens) == 2:
-                    try:
-                        hand_index = int(tokens[1])
-                    except ValueError:
-                        return False, "play_basic", "requires int"
-                    return True, "play_basic", (hand_index,)
-                return False, "play_basic", "requires one argument"   
-            case "evolve":
-                if len(tokens) == 3:
-                    try:
-                        hand_index =   int(tokens[1])
-                        active_index = int(tokens[2])
-                    except ValueError:
-                        return False, "evolve", "requires 2 ints"
-                    return True, "evolve", (hand_index, active_index)
-                return False, "evolve", "requires 2 arguments"                    
-            case "retreat":
-                pass
-            case "attack":
-                pass
-            case "use_ability":
-                if len(tokens) == 3:
-                    try:
-                        active_index  = int(tokens[1])
-                        ability_index = int(tokens[2])
-                    except ValueError:
-                        return False, "use_ability", "requires two ints"
-                    return True, "use_ability", (active_index, ability_index)
-                return False, "use_ability", "requires an argument"
-            case "select":
-                pass
-            case "place_energy":
-                pass
-            case "end_turn":
-                if len(tokens) == 1:
-                    return True, "end_turn", (None,)
-                return False, "end_turn", "requires no arguments"
-            case _:
-                return False, "", ""
 
     def make_move(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView) -> str:
         additional_moves = {
             "play_card x":         "...",
-            "play_basic x":      "...",
+            "play_basic x":        "...",
             "evolve x y":          "...",
             "retreat x e1 ... en": "...",
             "attack x":            "...",
