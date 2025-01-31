@@ -1,6 +1,6 @@
 from pokemon.user import User
 from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
-from pokemon.pokemon_battle import Deck, Battle
+from pokemon.pokemon_battle import Deck, Battle, battle_factory
 from pokemon.pokemon_types import EnergyType
 from pokemon.pokemon_control import battle_control, CommandLineBattleController
 import pokemon.utils as utils
@@ -31,7 +31,7 @@ def main():
     assert ready1 and ready2
 
     # start the battle
-    battle = Battle(deck1, deck2)
+    battle = battle_factory(deck1, deck2)
     battle_control(battle, CommandLineBattleController(), CommandLineBattleController())
 
 if __name__ == "__main__":

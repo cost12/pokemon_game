@@ -1,32 +1,6 @@
-from pokemon.pokemon_battle import Battle, OwnDeckView, OpponentDeckView, get_opponent_deck_view, get_own_deck_view
+from pokemon.pokemon_battle import Battle, Action, Rules, OwnDeckView, OpponentDeckView, get_opponent_deck_view, get_own_deck_view
 from pokemon.print_visualizer import visualize_own_deck, visualize_opponent_deck, visualize_active_pokemon, visualize_card
 from pokemon.pokemon_types import EnergyType, EnergyContainer
-
-class Action:
-    """These should be in/ associated with Battle
-    A method can be called to query legal/available actions
-
-    The BattleController can also have it's own actions, these may or may not be part of the same class
-    """
-    def __init__(self):
-        self.name = ""
-        self.input_format = ""
-        self.description = ""
-    
-    def raw_input(self, input:str) -> bool:
-        """Takes in a string and determines whether the input is an action
-        """
-        pass
-
-    def input_to_action(self, input:str) -> 'Action':
-        """Takes in a string and creates an action described by the string
-        """
-        pass
-
-    def battle_call(self, battle:Battle) -> None:
-        """Performs the action in the battle
-        """
-        pass
 
 def battle_control(battle:Battle, controller1:'BattleController', controller2:'BattleController') -> None:
     """Controls the flow and inputs to a battle
@@ -41,51 +15,33 @@ def battle_control(battle:Battle, controller1:'BattleController', controller2:'B
     print("The battle has begun")
 
     print("Team 1 set up your cards")
-    move1 = controller1.setup_cards(get_own_deck_view(battle.deck1), get_opponent_deck_view(battle.deck2))
-    while not battle.valid_setup(move1, battle.deck1):
+    action, inputs = controller1.make_move(get_own_deck_view(battle.state.deck1), get_opponent_deck_view(battle.state.deck2), battle.available_actions(), battle.get_rules(), battle.get_score())
+    inputs = (True, *inputs)
+    while not battle.action(action, inputs):
         print("\nInvalid move, Team 1 set up your cards")
-        move1 = controller1.setup_cards(get_own_deck_view(battle.deck1), get_opponent_deck_view(battle.deck2))
+        action, inputs = controller1.make_move(get_own_deck_view(battle.state.deck1), get_opponent_deck_view(battle.state.deck2), battle.available_actions(), battle.get_rules(), battle.get_score())
+        inputs = (True, *inputs)
     
     print("Team 2 set up your cards")
-    move2 = controller2.setup_cards(get_own_deck_view(battle.deck2), get_opponent_deck_view(battle.deck1))
-    while not battle.valid_setup(move2, battle.deck2):
+    action, inputs = controller2.make_move(get_own_deck_view(battle.state.deck2), get_opponent_deck_view(battle.state.deck1), battle.available_actions(), battle.get_rules(), battle.get_score())
+    inputs = (False, *inputs)
+    while not battle.action(action, inputs):
         print("\nInvalid move, Team 2 set up your cards")
-        move2 = controller2.setup_cards(get_own_deck_view(battle.deck2), get_opponent_deck_view(battle.deck1))
-
-    assert battle.team1_setup(move1)
-    assert battle.team2_setup(move2)
+        action, inputs = controller2.make_move(get_own_deck_view(battle.state.deck2), get_opponent_deck_view(battle.state.deck1), battle.available_actions(), battle.get_rules(), battle.get_score())
+        inputs = (False, *inputs)
 
     print("Team 1, it's your turn")
-    move, inputs = controller1.make_move(get_own_deck_view(battle.deck1), get_opponent_deck_view(battle.deck2))
+    action, inputs = controller1.make_move(get_own_deck_view(battle.state.deck1), get_opponent_deck_view(battle.state.deck2), battle.available_actions(), battle.get_rules(), battle.get_score())
     while not battle.is_over():
-        match move:
-            case "play_card":
-                success = battle.play_card(*inputs)
-            case "play_basic":
-                success = battle.play_basic(*inputs)
-            case "evolve":
-                success = battle.evolve(*inputs)
-            case "retreat":
-                success = battle.retreat(*inputs)
-            case "attack":
-                success = battle.attack(*inputs)
-            case "use_ability":
-                success = battle.use_ability(*inputs)
-            case "select":
-                success = battle.select(*inputs)
-            case "place_energy":
-                success = battle.place_energy(*inputs)
-            case "end_turn":
-                success = battle.end_turn()
+        success = battle.action(action, inputs)
         if not success:
             print("Invalid move, try again")
-            print(f"Try one of these: {battle.available_actions()}")
         if battle.team1_move():
             print("Team 1, it's your move")
-            move, inputs = controller1.make_move(get_own_deck_view(battle.deck1), get_opponent_deck_view(battle.deck2))
+            action, inputs = controller1.make_move(get_own_deck_view(battle.state.deck1), get_opponent_deck_view(battle.state.deck2), battle.available_actions(), battle.get_rules(), battle.get_score())
         else:
             print("Team 2, it's your turn")
-            move, inputs = controller2.make_move(get_own_deck_view(battle.deck2), get_opponent_deck_view(battle.deck1))
+            action, inputs = controller2.make_move(get_own_deck_view(battle.state.deck2), get_opponent_deck_view(battle.state.deck1), battle.available_actions(), battle.get_rules(), battle.get_score())
     print("Battle is over")
 
 class BattleController:
@@ -93,10 +49,7 @@ class BattleController:
     def __init__(self):
         pass
 
-    def setup_cards(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView) -> tuple[int]:
-        pass
-
-    def make_move(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView) -> tuple[str,tuple[int|EnergyType]]:
+    def make_move(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, available_actions:dict[str,Action], rules:Rules, score:tuple[int]) -> tuple[str,tuple[int|EnergyType]]:
         pass
 
 class CommandLineBattleController(BattleController):
@@ -104,114 +57,71 @@ class CommandLineBattleController(BattleController):
     def __init__(self):
         super().__init__()
 
-    def __valid_setup(self, input_str:str, own_deck:OwnDeckView) -> bool:
-        error_checking=False
-        tokens = input_str.split(" ")
-        if error_checking:
-            indices = set()
-        if tokens[0] == "play":
-            for token in tokens[1:]:
-                try:
-                    t = int(token)
-                except ValueError:
-                    return False
-                if error_checking:
-                    if t in indices:
-                        return False
-                    indices.add(t)
-                    if t < 0 or t >= len(own_deck.hand) or not own_deck.hand[t].is_basic():
-                        return False
-            if (not error_checking and len(tokens) > 1) or (len(tokens) > 1 and len(tokens) <= own_deck.bench_size + 2):
-                return True
-        return False
-    
-    def __parse_setup(self, input_str:str) -> tuple[int]:
-        tokens = input_str.split(" ")
-        return tuple([int(token) for token in tokens[1:]])
+    def __prompt_command(self, user_input:str, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, action_descs:dict[str,str], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool,str,tuple]:
+        tokens = user_input.split(" ")
+        if tokens[0] in available_actions:
+            valid, inputs = available_actions[tokens[0]].is_valid_raw(tokens[1:])
+            if valid:
+                return True, tokens[0], inputs
+        match tokens[0]:
+            case "l":
+                for action, description in action_descs.items():
+                    print(f"{action:20}: {description}")
+                for name, action in available_actions.items():
+                    print(f"{action.input_format():20}: {action.action_description()}")
+            case "score":
+                print(f"Team1: {score[0]} Team2: {score[0]}")
+            case "view_own":
+                visualize_own_deck(own_deck)
+            case "view_opp":
+                visualize_opponent_deck(opponent_deck)
+            case "own_hand":
+                if len(tokens) == 2:
+                    try:
+                        index = int(tokens[1])
+                    except ValueError:
+                        return False, None, None
+                    if index >= 0 and index < len(own_deck.hand):
+                        visualize_card(own_deck.hand[index])
+                else:
+                    print("invalid command")
+            case "own_active":
+                if len(tokens) == 2:
+                    try:
+                        index = int(tokens[1])
+                    except ValueError:
+                        return False, None, None
+                    if index >= 0 and index < len(own_deck.active):
+                        visualize_active_pokemon(own_deck.active[index])
+                else:
+                    print("invalid command")
+            case "opp_active":
+                if len(tokens) == 2:
+                    try:
+                        index = int(tokens[1])
+                    except ValueError:
+                        return False, None, None
+                    if index >= 0 and index < len(opponent_deck.active):
+                        visualize_active_pokemon(opponent_deck.active[index])
+                else:
+                    print("invalid command")
+            case _:
+                print("invalid command")
+        return False, None, None
 
-    def __validate_command(self, input_str:str, command:str, max_val:int) -> tuple[bool,int]:
-        tokens = input_str.split(" ")
-        command_tokens = command.split(" ")
-        if not len(tokens) == len(command_tokens) + 1:
-            return False, -1
-        for i in range(len(command_tokens)):
-            if not tokens[i] == command_tokens[i]:
-                return False, -1
-        try:
-            num = int(tokens[-1])
-            if num < 0 or num >= max_val:
-                return False, num
-            return True, num
-        except ValueError:
-            return False, -1
-
-    def __prompt_command(self, user_input:str, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, additional_moves:dict[str,str]):
+    def make_move(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, available_actions:dict[str,Action], rules:Rules, score:tuple[int]) -> tuple[str,tuple[int|EnergyType]]:
         action_descs = {
-            'l':            'list commands',
-            'actions':      'List the available actions',
+            'l':            'list valid commands',
+            'score':        "View the score",
             'view_own':     'View your own cards/deck setup',
             'view_opp':     "View your opponent's cards/deck setup",
             'own_hand x':   'View the card at index x in your hand',
             'own_active x': 'View the card at index x in your active spots',
             'opp_active x': "View the card at index x in your opponent's active spots"
         }
-        match user_input:
-            case "l":
-                for action, description in action_descs.items():
-                    print(f"{action:20}: {description}")
-                for action, description in additional_moves.items():
-                    print(f"{action:20}: {description}")
-            case 'actions':
-                print("TODO: this :(")
-            case "view_own":
-                visualize_own_deck(own_deck)
-            case "view_opp":
-                visualize_opponent_deck(opponent_deck)
-            case str(x) if "own_hand" in x:
-                valid, index = self.__validate_command(user_input, "own_hand", len(own_deck.hand))
-                if valid:
-                    visualize_card(own_deck.hand[index])
-                else:
-                    print("invalid command")
-            case str(x) if "own_active" in x:
-                valid, index = self.__validate_command(user_input, "own_active", len(own_deck.active))
-                if valid:
-                    visualize_active_pokemon(own_deck.active[index])
-                else:
-                    print("invalid command")
-            case str(x) if "opp_active" in x:
-                valid, index = self.__validate_command(user_input, "opp_active", len(opponent_deck.active))
-                if valid:
-                    visualize_active_pokemon(opponent_deck.active[index])
-                else:
-                    print("invalid command")
-            case _:
-                print("invalid command")
-
-    def setup_cards(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView) -> tuple[int]:
         user_input = input("\nSelect your action (l for list of actions): ")
-        while not self.__valid_setup(user_input, own_deck):
-            self.__prompt_command(user_input, own_deck, opponent_deck, {"play x1 ... xn": "Play the cards at index x1 and ... xn from your hand to the active spot"})
-            user_input = input("\nSelect your action: ")
-        return self.__parse_setup(user_input)
-
-    def make_move(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView) -> str:
-        additional_moves = {
-            "play_card x":         "...",
-            "play_basic x":        "...",
-            "evolve x y":          "...",
-            "retreat x e1 ... en": "...",
-            "attack x":            "...",
-            "use_ability x":       "...",
-            "select x":            "...",
-            "place_energy x":      "...",
-            "end_turn":            "..."
-        }
-        user_input = input("\nSelect your action (l for list of actions): ")
-        valid, move, inputs = self.__validate_move(user_input)
+        valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, action_descs, available_actions, score)
         while not valid:
-            print(f"{move} error: {inputs}")
-            self.__prompt_command(user_input, own_deck, opponent_deck, additional_moves)
             user_input = input("\nSelect your action: ")
-            valid, move, inputs = self.__validate_move(user_input)
+            valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, action_descs, available_actions, score)
         return move, inputs
