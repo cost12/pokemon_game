@@ -274,6 +274,8 @@ class BattleState:
 
     def __init__(self, deck1:Deck, deck2:Deck, rules:Rules|None, *, turn_number:int=0, next_move_team1:bool=True, team1_points:int=0, team2_points:int=0, team1_ready:bool=False, team2_ready:bool=False, current_turn:Turn|None=None):
         self.rules = rules if rules is not None else Rules()
+        assert rules.is_valid_deck(deck1)
+        assert rules.is_valid_deck(deck2)
         self.deck1 = DeckSetup(deck1, rules.INITIAL_HAND_SIZE, rules.FUTURE_ENERGIES, rules.SHUFFLE)
         self.deck2 = DeckSetup(deck2, rules.INITIAL_HAND_SIZE, rules.FUTURE_ENERGIES, rules.SHUFFLE)
         self.turn_number = turn_number
@@ -335,9 +337,9 @@ class BattleState:
             if not self.current_turn.energy_used:
                 self.current_deck().delete_energy()
             self.current_deck().end_turn()
-            self.next_move_team1 = not self.next_move_team1
             self.turn_number += 1
             self.current_turn.reset()
+            self.next_move_team1 = self.team1_turn()
             self.between_turns()
             self.start_turn()
             return True
@@ -432,9 +434,9 @@ class SetupAction(Action):
 class PlayBasicAction(Action):
 
     def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        hand_index = inputs[0]
-        deck = battle.current_deck()
-        if self.is_valid(inputs):
+        if self.is_valid(battle, inputs):
+            hand_index = inputs[0]
+            deck = battle.current_deck()
             deck.play_basic(hand_index)
             return True
         return False
@@ -536,7 +538,7 @@ class AttackAction(Action):
                     battle.team1_points += 1 if attacked.level <= 100 else 2
                 else:
                     battle.team2_points += 1 if attacked.level <= 100 else 2
-                self.next_move_team1 = not self.next_move_team1
+                battle.next_move_team1 = not battle.next_move_team1
             else:
                 battle.end_turn()
             return True
@@ -561,7 +563,7 @@ class AttackAction(Action):
 
     def could_act(self, battle:BattleState) -> bool:
         deck = battle.current_deck()
-        if len(deck.active) > 0:
+        if len(deck.active) > 0 and deck.active[0] is not None:
             for attack_index in range(len(deck.active[0].active_card().attacks)):
                 if self.is_valid(battle, (attack_index,)):
                     return True
@@ -636,7 +638,7 @@ class PlaceEnergyAction(Action):
         return False
 
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if not battle.battle_going() and not battle.need_to_replace_active():
+        if not battle.battle_going() or battle.need_to_replace_active():
             return False
         active_index = inputs[0]
         deck = battle.current_deck()
@@ -673,7 +675,7 @@ class SelectAction(Action):
             bench_index = inputs[0]
             deck = battle.current_deck()
             deck.replace_starter(bench_index)
-            if battle.need_to_replace_active():
+            if battle.need_to_replace_active(): # if the other team also needs to replace
                 self.next_move_team1 = not self.next_move_team1
             else:
                 self.next_move_team1 = battle.team1_turn()
@@ -714,10 +716,13 @@ class SelectAction(Action):
 
 class EndTurnAction(Action):
     def action(self, battle:BattleState, inputs:tuple) -> bool:
-        battle.end_turn()
+        if self.is_valid(battle, inputs):
+            battle.end_turn()
+            return True
+        return False
 
     def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
-        return battle.battle_going()
+        return battle.battle_going() and not battle.need_to_replace_active()
 
     def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
         return len(inputs) == 0
@@ -757,7 +762,7 @@ class Battle:
             return success
         return False
     
-    def available_actions(self) -> list[str]:
+    def available_actions(self) -> dict[str,Action]:
         return {name:action for name,action in self.actions.items() if action.could_act(self.state)}
 
     def get_rules(self) -> Rules:
