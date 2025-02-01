@@ -52,76 +52,189 @@ class BattleController:
     def make_move(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, available_actions:dict[str,Action], rules:Rules, score:tuple[int]) -> tuple[str,tuple[int|EnergyType]]:
         pass
 
+class CommandLineAction:
+    def action_name(self) -> str:
+        pass
+
+    def action_description(self) -> str:
+        pass
+
+    def input_format(self) -> str:
+        pass
+
+    def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,'CommandLineAction'], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
+        pass
+
+    def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,'CommandLineAction'], available_actions:dict[str,Action], score:tuple[int]) -> None:
+        pass
+
+class ListAction(CommandLineAction):
+    def action_name(self) -> str:
+        return 'list'
+
+    def action_description(self) -> str:
+        return 'list valid commands'
+
+    def input_format(self) -> str:
+        return 'list'
+
+    def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
+        return len(inputs) == 0, tuple()
+
+    def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
+        for _, action in commandline_actions.items():
+            print(f"{action.input_format():20}: {action.action_description}")
+        for _, action in available_actions.items():
+            print(f"{action.input_format():20}: {action.action_description()}")
+
+class ScoreAction(CommandLineAction):
+    def action_name(self) -> str:
+        return 'score'
+
+    def action_description(self) -> str:
+        return 'View the score'
+
+    def input_format(self) -> str:
+        return 'score'
+
+    def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
+        return len(inputs) == 0, tuple()
+
+    def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
+        print(f"Team1: {score[0]} Team2: {score[0]}")
+
+class ViewOwnSetupAction(CommandLineAction):
+    def action_name(self) -> str:
+        return 'view_own'
+
+    def action_description(self) -> str:
+        return 'View your own cards/deck setup'
+
+    def input_format(self) -> str:
+        return 'view_own'
+
+    def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
+        return len(inputs) == 0, tuple()
+
+    def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
+        visualize_own_deck(own_deck)
+
+class ViewOpponentSetupAction(CommandLineAction):
+    def action_name(self) -> str:
+        return 'view_opp'
+
+    def action_description(self) -> str:
+        return "View your opponent's cards/deck setup"
+
+    def input_format(self) -> str:
+        return 'view_opp'
+
+    def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
+        return len(inputs) == 0, tuple()
+
+    def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
+        visualize_opponent_deck(opponent_deck)
+
+class ViewOwnHandAction(CommandLineAction):
+    def action_name(self) -> str:
+        return 'own_hand'
+
+    def action_description(self) -> str:
+        return 'View a specific card in your hand'
+
+    def input_format(self) -> str:
+        return 'own_hand x'
+
+    def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
+        if len(inputs) == 1:
+            try:
+                index = int(inputs[0])
+            except ValueError:
+                return False, None
+            if index >= 0 and index < len(own_deck.hand):
+                return True, (index,)
+        return False, None
+
+    def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
+        visualize_card(own_deck.hand[inputs[0]])
+
+class ViewOwnActiveAction(CommandLineAction):
+    def action_name(self) -> str:
+        return 'own_active'
+
+    def action_description(self) -> str:
+        return 'View a specific card in your active area'
+
+    def input_format(self) -> str:
+        return 'own_active x'
+
+    def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
+        if len(inputs) == 2:
+            try:
+                index = int(inputs[0])
+            except ValueError:
+                return False, None
+            if index >= 0 and index < len(own_deck.active):
+                return True, (index,)
+        return False, None
+
+    def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
+        visualize_active_pokemon(own_deck.active[inputs[0]])
+
+class ViewOpponentActiveAction(CommandLineAction):
+    def action_name(self) -> str:
+        return 'opp_active'
+
+    def action_description(self) -> str:
+        return "View a specific card in your opponent's active area"
+
+    def input_format(self) -> str:
+        return 'opp_active x'
+
+    def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
+        if len(inputs) == 2:
+            try:
+                index = int(inputs[0])
+            except ValueError:
+                return False, None
+            if index >= 0 and index < len(opponent_deck.active):
+                return True, (index,)
+        return False
+
+    def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
+        visualize_active_pokemon(opponent_deck.active[inputs[0]])
+
 class CommandLineBattleController(BattleController):
 
     def __init__(self):
         super().__init__()
 
-    def __prompt_command(self, user_input:str, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, action_descs:dict[str,str], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool,str,tuple]:
+    def __prompt_command(self, user_input:str, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool,str,tuple]:
         tokens = user_input.split(" ")
         if tokens[0] in available_actions:
             valid, inputs = available_actions[tokens[0]].is_valid_raw(tokens[1:])
             if valid:
                 return True, tokens[0], inputs
-        match tokens[0]:
-            case "l":
-                for action, description in action_descs.items():
-                    print(f"{action:20}: {description}")
-                for name, action in available_actions.items():
-                    print(f"{action.input_format():20}: {action.action_description()}")
-            case "score":
-                print(f"Team1: {score[0]} Team2: {score[0]}")
-            case "view_own":
-                visualize_own_deck(own_deck)
-            case "view_opp":
-                visualize_opponent_deck(opponent_deck)
-            case "own_hand":
-                if len(tokens) == 2:
-                    try:
-                        index = int(tokens[1])
-                    except ValueError:
-                        return False, None, None
-                    if index >= 0 and index < len(own_deck.hand):
-                        visualize_card(own_deck.hand[index])
-                else:
-                    print("invalid command")
-            case "own_active":
-                if len(tokens) == 2:
-                    try:
-                        index = int(tokens[1])
-                    except ValueError:
-                        return False, None, None
-                    if index >= 0 and index < len(own_deck.active):
-                        visualize_active_pokemon(own_deck.active[index])
-                else:
-                    print("invalid command")
-            case "opp_active":
-                if len(tokens) == 2:
-                    try:
-                        index = int(tokens[1])
-                    except ValueError:
-                        return False, None, None
-                    if index >= 0 and index < len(opponent_deck.active):
-                        visualize_active_pokemon(opponent_deck.active[index])
-                else:
-                    print("invalid command")
-            case _:
-                print("invalid command")
+        if tokens[0] in commandline_actions:
+            valid, inputs = commandline_actions[tokens[0]].is_valid_raw(tokens[1:], own_deck, opponent_deck, commandline_actions, available_actions, score)
+            if valid:
+                commandline_actions[tokens[0]].action(inputs, own_deck, opponent_deck, commandline_actions, available_actions, score)
         return False, None, None
 
     def make_move(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, available_actions:dict[str,Action], rules:Rules, score:tuple[int]) -> tuple[str,tuple[int|EnergyType]]:
-        action_descs = {
-            'l':            'list valid commands',
-            'score':        "View the score",
-            'view_own':     'View your own cards/deck setup',
-            'view_opp':     "View your opponent's cards/deck setup",
-            'own_hand x':   'View the card at index x in your hand',
-            'own_active x': 'View the card at index x in your active spots',
-            'opp_active x': "View the card at index x in your opponent's active spots"
-        }
+        commands = list[CommandLineAction](
+            ListAction(),
+            ScoreAction(),
+            ViewOwnSetupAction(),
+            ViewOpponentSetupAction(),
+            ViewOwnHandAction(),
+            ViewOwnActiveAction(),
+            ViewOpponentActiveAction()
+        )
+        commandline_actions = {action.action_name():action for action in commands}
         user_input = input("\nSelect your action (l for list of actions): ")
-        valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, action_descs, available_actions, score)
+        valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, commandline_actions, available_actions, score)
         while not valid:
             user_input = input("\nSelect your action: ")
-            valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, action_descs, available_actions, score)
+            valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, commandline_actions, available_actions, score)
         return move, inputs
