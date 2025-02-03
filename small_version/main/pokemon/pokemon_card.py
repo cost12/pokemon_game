@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from frozendict import frozendict
+from enum import Enum
 
 from pokemon.pokemon_types import EnergyType, PokemonType, EnergyContainer, weakness, resistance, energy_type
 
@@ -42,8 +42,92 @@ def stage_to_str(stage:int) -> str:
         return "basic"
     return f"stage {stage}"
 
+class CardType(Enum):
+    POKEMON   = 0
+    SUPPORTER = 1
+    ITEM      = 2
+    TOOL      = 3
+    FOSSIL    = 4
+
+class PlayingCard:
+    def is_basic(self) -> bool:
+        pass
+
+    def is_pokemon(self) -> bool:
+        pass
+
+    def get_card_type(self) -> CardType:
+        pass
+
+    def get_name(self) -> str:
+        pass
+
+    def is_trainer(self) -> bool:
+        pass
+
+    def is_fossil(self) -> bool:
+        pass
+
 @dataclass(frozen=True)
-class PokemonCard:
+class Trainer(PlayingCard):
+    name:str
+    text:str
+    effect:str
+    inputs:tuple
+    card_type:CardType
+
+    def get_action(self) -> tuple[str, tuple]:
+        return self.effect, self.inputs
+    
+    def get_card_type(self) -> CardType:
+        return self.card_type
+    
+    def is_basic(self) -> bool:
+        return False
+
+    def is_pokemon(self) -> bool:
+        return False
+
+    def get_name(self) -> str:
+        return self.name
+    
+    def is_trainer(self) -> bool:
+        return True
+
+    def is_fossil(self) -> bool:
+        return False
+
+@dataclass(frozen=True)
+class Fossil(PlayingCard):
+    name:str
+    hit_points:int
+    text:str
+    effect:str
+    inputs:tuple
+
+    def get_action(self) -> tuple[str, tuple]:
+        return self.effect, self.inputs
+    
+    def card_type(self) -> CardType:
+        return CardType.FOSSIL
+    
+    def is_basic(self) -> bool:
+        return False
+
+    def is_pokemon(self) -> bool:
+        return False
+
+    def get_name(self) -> str:
+        return self.name
+    
+    def is_trainer(self) -> bool:
+        return False
+
+    def is_fossil(self) -> bool:
+        return True
+
+@dataclass(frozen=True)
+class PokemonCard(PlayingCard):
     """Represents a pokemon card
     """
     pokemon: Pokemon
@@ -54,7 +138,19 @@ class PokemonCard:
     level: int = 0
     ability: tuple[Ability] = field(default_factory=tuple[Ability])
 
-    def name(self) -> str:
+    def get_card_type(self) -> CardType:
+        return CardType.POKEMON
+
+    def is_pokemon(self) -> bool:
+        return True
+    
+    def is_trainer(self) -> bool:
+        return False
+
+    def is_fossil(self) -> bool:
+        return False
+
+    def get_name(self) -> str:
         return self.pokemon.name if self.level_str() == '' else f'{self.pokemon.name} {self.level_str()}'
     
     def pokemon_name(self) -> str:

@@ -1,4 +1,4 @@
-from pokemon.pokemon_card import PokemonCard
+from pokemon.pokemon_card import PlayingCard
 from pokemon.pokemon_battle import Deck
 from pokemon.pokemon_control import BattleController
 import pokemon.utils as utils
@@ -7,28 +7,28 @@ class User:
     """Represents a user that collects and battles with cards
     """
 
-    def __init__(self, username:str, initial_cards:dict[PokemonCard,int]|None=None):
+    def __init__(self, username:str, initial_cards:dict[PlayingCard,int]|None=None):
         self.username = username
-        self.cards = dict[PokemonCard,int]() if initial_cards is None else initial_cards
+        self.cards = dict[PlayingCard,int]() if initial_cards is None else initial_cards
         self.decks = dict[str,Deck]()
         self.controller = BattleController()
 
-    def add_card(self, card:PokemonCard) -> None:
+    def add_card(self, card:PlayingCard) -> None:
         """Adds a card to the user's collection
 
         :param card: The card to add
-        :type card: PokemonCard
+        :type card: PlayingCard
         """
         if card in self.cards:
             self.cards[card] += 1
         else:
             self.cards[card] = 1
 
-    def add_cards(self, cards:list[PokemonCard]) -> None:
+    def add_cards(self, cards:list[PlayingCard]) -> None:
         """Adds many cards to the user's collection
 
         :param cards: The cards to add
-        :type cards: list[PokemonCard]
+        :type cards: list[PlayingCard]
         """
         for card in cards:
             self.add_card(card)
@@ -39,7 +39,7 @@ class User:
     def number_of_decks(self) -> int:
         return len(self.decks)
     
-    def number_of_copies(self, card:PokemonCard) -> int:
+    def number_of_copies(self, card:PlayingCard) -> int:
         return self.cards[card] if card in self.cards else 0
 
     def add_deck(self, deck:Deck) -> bool:
@@ -50,10 +50,9 @@ class User:
         :return: True if the deck is added, false otherwise
         :rtype: bool
         """
-        counts = dict[PokemonCard, int](utils.tuple_to_counts(deck.get_cards()))
+        counts = dict[PlayingCard, int](utils.tuple_to_counts(deck.get_cards()))
         for card, count in counts.items():
-            if counts[card] > self.number_of_copies(card):
-                print(f"{card.pokemon.name} {count} > {self.number_of_copies(card)}")
+            if count > self.number_of_copies(card):
                 return False
         self.decks[deck.name] = deck
         return True

@@ -1,6 +1,6 @@
 from pokemon.pokemon_battle import Battle, Action, Rules, OwnDeckView, OpponentDeckView, get_opponent_deck_view, get_own_deck_view
 from pokemon.print_visualizer import visualize_own_deck, visualize_opponent_deck, visualize_active_pokemon, visualize_card
-from pokemon.pokemon_types import EnergyType, EnergyContainer
+from pokemon.pokemon_types import EnergyType
 
 def battle_control(battle:Battle, controller1:'BattleController', controller2:'BattleController') -> None:
     """Controls the flow and inputs to a battle
@@ -83,7 +83,7 @@ class ListAction(CommandLineAction):
 
     def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
         for _, action in commandline_actions.items():
-            print(f"{action.input_format():20}: {action.action_description}")
+            print(f"{action.input_format():20}: {action.action_description()}")
         for _, action in available_actions.items():
             print(f"{action.input_format():20}: {action.action_description()}")
 
@@ -169,7 +169,7 @@ class ViewOwnActiveAction(CommandLineAction):
         return 'own_active x'
 
     def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
-        if len(inputs) == 2:
+        if len(inputs) == 1:
             try:
                 index = int(inputs[0])
             except ValueError:
@@ -192,7 +192,7 @@ class ViewOpponentActiveAction(CommandLineAction):
         return 'opp_active x'
 
     def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
-        if len(inputs) == 2:
+        if len(inputs) == 1:
             try:
                 index = int(inputs[0])
             except ValueError:
@@ -219,10 +219,12 @@ class CommandLineBattleController(BattleController):
             valid, inputs = commandline_actions[tokens[0]].is_valid_raw(tokens[1:], own_deck, opponent_deck, commandline_actions, available_actions, score)
             if valid:
                 commandline_actions[tokens[0]].action(inputs, own_deck, opponent_deck, commandline_actions, available_actions, score)
+            else:
+                print("Invalid command, try list to see all commands")
         return False, None, None
 
     def make_move(self, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, available_actions:dict[str,Action], rules:Rules, score:tuple[int]) -> tuple[str,tuple[int|EnergyType]]:
-        commands = list[CommandLineAction](
+        commands = list[CommandLineAction]([
             ListAction(),
             ScoreAction(),
             ViewOwnSetupAction(),
@@ -230,9 +232,9 @@ class CommandLineBattleController(BattleController):
             ViewOwnHandAction(),
             ViewOwnActiveAction(),
             ViewOpponentActiveAction()
-        )
+        ])
         commandline_actions = {action.action_name():action for action in commands}
-        user_input = input("\nSelect your action (l for list of actions): ")
+        user_input = input("\nSelect your action: ")
         valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, commandline_actions, available_actions, score)
         while not valid:
             user_input = input("\nSelect your action: ")

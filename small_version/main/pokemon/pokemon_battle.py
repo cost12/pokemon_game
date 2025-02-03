@@ -1,15 +1,9 @@
-from pokemon.pokemon_card import PokemonCard
+from pokemon.pokemon_card import PokemonCard, PlayingCard, CardType
 from pokemon.pokemon_types import EnergyType, Condition, EnergyContainer
 
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from collections import deque
-
-class CantEvolveException(Exception):
-    pass
-
-class NoCardsToDrawException(Exception):
-    pass
 
 class ActivePokemon:
 
@@ -67,20 +61,20 @@ class ActivePokemon:
 @dataclass(frozen=True)
 class Deck:
     name:str
-    cards:tuple[PokemonCard]
+    cards:tuple[PlayingCard]
     energies:tuple[EnergyType]
     
-    def get_cards(self) -> tuple[PokemonCard]:
+    def get_cards(self) -> tuple[PlayingCard]:
         """Get a list of the cards used in the deck
 
         :return: The cards in the deck
-        :rtype: list[PokemonCard]
+        :rtype: list[PlayingCard]
         """
         return self.cards
 
 class DeckSetup:
 
-    def __init__(self, deck:Deck, initial_hand_size:int, initial_energies:int, shuffle:bool=True,*, active:list[ActivePokemon]|None=None, discard:list[PokemonCard]|None=None, energy_discard:EnergyContainer|None=None):
+    def __init__(self, deck:Deck, initial_hand_size:int, initial_energies:int, shuffle:bool=True,*, active:list[ActivePokemon]|None=None, discard:list[PlayingCard]|None=None, energy_discard:EnergyContainer|None=None):
         self.energies = list(deck.energies)
         cards = list(deck.cards)
         if shuffle:
@@ -88,11 +82,11 @@ class DeckSetup:
         self.deck = deque(cards[initial_hand_size:])
         self.hand = cards[0:initial_hand_size]
         self.active = active if active is not None else list[ActivePokemon]()
-        self.discard = discard if discard is not None else list[PokemonCard]()
+        self.discard = discard if discard is not None else list[PlayingCard]()
         self.energy_discard = energy_discard if discard is not None else EnergyContainer()
         self.next_energies = deque([self.__decide_next_energy() for _ in range(initial_energies)])
 
-    def __shuffle_deck_to_start(self, cards:list[PokemonCard]) -> list[PokemonCard]:
+    def __shuffle_deck_to_start(self, cards:list[PlayingCard]) -> list[PlayingCard]:
         basics = [card for card in cards if card.is_basic()]
         starter = random.choice(basics)
         cards.remove(starter)
@@ -103,7 +97,7 @@ class DeckSetup:
     def __decide_next_energy(self) -> EnergyType:
         return random.choice(self.energies)
 
-    def bench(self) -> list[PokemonCard]:
+    def bench(self) -> list[PlayingCard]:
         return self.active[1:]
     
     def bench_size(self) -> int:
@@ -112,9 +106,22 @@ class DeckSetup:
     def start_turn(self, get_energy:bool=True, draw_card:bool=True) -> None:
         if get_energy:
             self.next_energies.append(self.__decide_next_energy())
-        if draw_card:   
-            card = self.deck.popleft()
-            self.hand.append(card)
+        if draw_card:
+            self.draw_card()
+
+    def draw_card(self) -> None: 
+        card = self.deck.popleft()
+        self.hand.append(card)
+
+    def draw_basic(self) -> None:
+        basics = [card for card in self.deck if card.is_basic()]
+        if len(basics) > 0:
+            basic = random.choice(basics)
+            self.deck.remove(basic)
+            self.hand.append(basic)
+            deck = list(self.deck)
+            random.shuffle(deck)
+            self.deck = deque(deck)
 
     def between_turns(self) -> None:
         for active in self.active:
@@ -185,16 +192,16 @@ class OpponentDeckView:
     hand_size:      int
     deck_size:      int
     energy_queue:   deque[EnergyType]
-    discard_pile:   list[PokemonCard]
+    discard_pile:   list[PlayingCard]
     energy_discard: EnergyContainer
 
 @dataclass
 class OwnDeckView:
     active:         list[ActivePokemon]
-    hand:           list[PokemonCard]
+    hand:           list[PlayingCard]
     deck_size:      int
     energy_queue:   deque[EnergyType]
-    discard_pile:   list[PokemonCard]
+    discard_pile:   list[PlayingCard]
     energy_discard: EnergyContainer
 
 def get_opponent_deck_view(deck:DeckSetup) -> OpponentDeckView:
@@ -220,7 +227,10 @@ def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
     """
     active = list[ActivePokemon]()
     for a in deck.active:
-        active.append(a.copy())
+        if a is not None:
+            active.append(a.copy())
+        else:
+            active.append(None)
     return OwnDeckView(active, list(deck.hand), len(deck.deck), list(deck.next_energies), list(deck.discard), deck.energy_discard)
 
 class Turn:
@@ -229,13 +239,15 @@ class Turn:
         self.reset()
 
     def reset(self) -> None:
-        self.used_supporter = False
-        self.retreated      = False
-        self.energy_used    = False
-        self.attacked       = False
+        self.used_supporters = 0
+        self.retreated       = False
+        self.energy_used     = False
+        self.attacked        = False
 
 @dataclass(frozen=True)
 class Rules:
+    actions           :set['Action']
+    effects           :set['Effect']
     DECK_SIZE         :int  = 20
     DUPLICATE_LIMIT   :int  = 2
     BASIC_REQUIRED    :bool = True
@@ -246,6 +258,13 @@ class Rules:
     MAX_HAND_SIZE     :int  = 10
     FUTURE_ENERGIES   :int  = 1
     SHUFFLE           :bool = True
+    SUPPORTERS_PER_TURN:int  = 1
+
+    def get_actions(self) -> dict[str,'Action']:
+        return {action.action_name():action for action in self.actions}
+
+    def get_effects(self) -> dict[str,'Effect']:
+        return {effect.effect_name():effect for effect in self.effects}
 
     def is_valid_deck(self, deck:Deck) -> bool:
         """Checks whether a deck is valid for use in a battle
@@ -262,12 +281,12 @@ class Rules:
         for card in deck.cards:
             if card.is_basic():
                 has_basic = True
-            if card.name() in card_names:
-                card_names[card.name()] += 1
-                if card_names[card.name()] > self.DUPLICATE_LIMIT:
+            if card.get_name() in card_names:
+                card_names[card.get_name()] += 1
+                if card_names[card.get_name()] > self.DUPLICATE_LIMIT:
                     return False
             else:
-                card_names[card.name()] = 1
+                card_names[card.get_name()] = 1
         return has_basic or not self.BASIC_REQUIRED
 
 class BattleState:
@@ -317,6 +336,9 @@ class BattleState:
     def is_valid_basic_index(self, index:int, deck:DeckSetup) -> bool:
         return index >= 0 and index < len(deck.hand) and deck.hand[index].is_basic()
     
+    def is_valid_trainer_index(self, index:int, deck:DeckSetup) -> bool:
+        return index >= 0 and index < len(deck.hand) and deck.hand[index].is_trainer()
+    
     def is_valid_hand_index(self, index:int, deck:DeckSetup) -> bool:
         return index >= 0 and index < len(deck.hand)
     
@@ -349,6 +371,77 @@ class BattleState:
         self.deck1.between_turns()
         self.deck2.between_turns()
 
+class Effect:
+    def effect_name(self) -> str:
+        pass
+
+    def effect_description(self) -> str:
+        pass
+
+    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
+        pass
+
+    def effect(self, battle:BattleState, inputs:tuple) -> bool:
+        pass
+
+class DrawCardsEffect(Effect):
+    def effect_name(self) -> str:
+        return "draw"
+
+    def effect_description(self) -> str:
+        return "Draws cards from the deck to the hand"
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.battle_going() or battle.need_to_replace_active():
+            return False
+        if len(inputs) == 1:
+            try:
+                n = int(inputs[0])
+            except ValueError:
+                return False
+            return True
+        return False
+
+    def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if self.is_valid(battle, inputs):
+            n = inputs[0]
+            deck = battle.current_deck()
+            i = 0
+            while i < n and len(deck.deck) > 0 and len(deck.hand) < battle.rules.MAX_HAND_SIZE:
+                deck.draw_card()
+                i += 1
+            return True
+        return False
+
+class DrawBasicEffect(Effect):
+    def effect_name(self) -> str:
+        return "draw_basic"
+
+    def effect_description(self) -> str:
+        return "Draw random basic cards from the deck into the hand"
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.battle_going() or battle.need_to_replace_active():
+            return False
+        if len(inputs) == 1:
+            try:
+                n = int(inputs[0])
+            except ValueError:
+                return False
+            return True
+        return False
+
+    def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if self.is_valid(battle, inputs):
+            n = inputs[0]
+            deck = battle.current_deck()
+            i = 0
+            while i < n and len(deck.hand) < battle.rules.MAX_HAND_SIZE:
+                deck.draw_basic()
+                i += 1
+            return True
+        return False
+
 class Action:
 
     def action(self, battle:BattleState, inputs:tuple) -> bool:
@@ -371,6 +464,58 @@ class Action:
 
     def input_format(self) -> str:
         pass
+
+class PlayTrainerAction(Action):
+    def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if self.is_valid(battle, inputs):
+            hand_index = inputs[0]
+            deck = battle.current_deck()
+            trainer = deck.hand[hand_index]
+            deck.play_card_from_hand(hand_index)
+            effect, inputs = trainer.get_action()
+            battle.rules.get_effects()[effect].effect(battle, inputs)
+            if trainer.get_card_type() == CardType.SUPPORTER:
+                battle.current_turn.used_supporters += 1
+            return True
+        return False
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.battle_going() or battle.need_to_replace_active():
+            return False
+        hand_index = inputs[0]
+        deck = battle.current_deck()
+        if battle.is_valid_trainer_index(hand_index, deck):
+            if deck.hand[hand_index].get_card_type() == CardType.SUPPORTER and battle.current_turn.used_supporters >= battle.rules.SUPPORTERS_PER_TURN:
+                return False
+            effect, inputs = deck.hand[hand_index].get_action()
+            if effect in battle.rules.get_effects():
+                return battle.rules.get_effects()[effect].is_valid(battle, inputs)
+        return False
+
+    def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
+        if len(inputs) == 1:
+            try:
+                hand_index = int(inputs[0])
+            except ValueError:
+                return False, None
+            return True, (hand_index,)
+        return False, None
+
+    def could_act(self, battle:BattleState) -> bool:
+        deck = battle.current_deck()
+        for i in range(len(deck.hand)):
+            if self.is_valid(battle, (i,)):
+                return True
+        return False
+
+    def action_name(self) -> str:
+        return "trainer"
+
+    def action_description(self) -> str:
+        return "Play a trainer card from your hand"
+
+    def input_format(self) -> str:
+        return "trainer x"
 
 class SetupAction(Action):
     def action(self, battle:BattleState, inputs:tuple[bool, int]) -> bool:
@@ -482,14 +627,14 @@ class EvolveAction(Action):
             return True
         return False
 
-    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+    def is_valid(self, battle:BattleState, inputs:tuple[int,int]) -> bool:
         if not battle.battle_going() or battle.need_to_replace_active():
             return False
         hand_index, active_index = inputs
         deck = battle.current_deck()
         valid1 = battle.is_valid_hand_index(hand_index, deck)
         valid2 = battle.is_valid_active_index(active_index, deck)
-        if valid1 and valid2:
+        if valid1 and valid2 and deck.hand[hand_index].is_pokemon():
             if deck.active[active_index].turns_in_active >= battle.rules.TURNS_TO_EVOLVE and \
                deck.hand[hand_index].evolves_from() == deck.active[active_index].active_card().pokemon:
                 return True
@@ -616,7 +761,7 @@ class RetreatAction(Action):
         if not battle.battle_going() or battle.need_to_replace_active():
             return False
         deck = battle.current_deck()
-        return deck.active[0].active_card().retreat_cost <= deck.active[0].energies.size()
+        return deck.active[0].active_card().retreat_cost <= deck.active[0].energies.size() and deck.bench_size() > 0
 
     def action_name(self) -> str:
         return "retreat"
@@ -725,7 +870,7 @@ class EndTurnAction(Action):
         return battle.battle_going() and not battle.need_to_replace_active()
 
     def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
-        return len(inputs) == 0
+        return len(inputs) == 0, inputs
 
     def could_act(self, battle:BattleState) -> bool:
         return self.is_valid(battle, tuple())
@@ -743,8 +888,7 @@ class Battle:
     """Represents a battle between two decks of cards
     """
 
-    def __init__(self, actions:dict[str,Action], state:BattleState):
-        self.actions = actions
+    def __init__(self, state:BattleState):
         self.state = state
 
     def team1_move(self) -> bool:
@@ -757,13 +901,13 @@ class Battle:
         return self.state.is_over()
     
     def action(self, action:str, inputs:tuple) -> bool:
-        if action in self.actions:
-            success = self.actions[action].action(self.state, inputs)
+        if action in self.state.rules.get_actions():
+            success = self.state.rules.get_actions()[action].action(self.state, inputs)
             return success
         return False
     
     def available_actions(self) -> dict[str,Action]:
-        return {name:action for name,action in self.actions.items() if action.could_act(self.state)}
+        return {name:action for name,action in self.state.rules.get_actions().items() if action.could_act(self.state)}
 
     def get_rules(self) -> Rules:
         return self.state.rules
@@ -771,8 +915,8 @@ class Battle:
     def get_score(self) -> tuple[int]:
         return self.state.team1_points, self.state.team2_points
 
-def standard_actions() -> dict[str, Action]:
-    actions = list[Action]([
+def standard_actions() -> set[Action]:
+    actions = set[Action]([
         SetupAction(),
         PlayBasicAction(),
         EvolveAction(),
@@ -780,15 +924,24 @@ def standard_actions() -> dict[str, Action]:
         RetreatAction(),
         PlaceEnergyAction(),
         SelectAction(),
-        EndTurnAction()
+        EndTurnAction(),
+        PlayTrainerAction(),
     ])
-    return {action.action_name():action for action in actions}
+    return actions
 
-def battle_factory(deck1:Deck, deck2:Deck, rules:Rules|None=None, actions:dict[str,Action]|None=None):
-    if rules is None:
-        rules = Rules()
+def standard_effects() -> set[Effect]:
+    return set[Effect]([
+        DrawCardsEffect(),
+        DrawBasicEffect()
+    ])
+
+def battle_factory(deck1:Deck, deck2:Deck, rules:Rules|None=None, actions:set[Action]|None=None, effects:set[Effect]|None=None):
     if actions is None:
         actions = standard_actions()
+    if effects is None:
+        effects = standard_effects()
+    if rules is None:
+        rules = Rules(actions, effects)
     state = BattleState(deck1, deck2, rules)
-    return Battle(actions, state)
+    return Battle(state)
     

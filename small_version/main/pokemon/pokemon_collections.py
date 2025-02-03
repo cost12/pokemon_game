@@ -1,4 +1,4 @@
-from pokemon.pokemon_card import Attack, Pokemon, PokemonCard
+from pokemon.pokemon_card import Attack, Pokemon, PokemonCard, Trainer, CardType
 from pokemon.pokemon_types import PokemonType, EnergyType, EnergyContainer
 
 from frozendict import frozendict
@@ -71,17 +71,25 @@ def generate_pokemon_cards(pokemon:dict[str,Pokemon], attacks:dict[str,Attack]) 
     blastoise    = PokemonCard(pokemon['Blastoise'], 150, PokemonType.WATER, (attacks['Hydro Pump'],), 3)
     blastoise_ex = PokemonCard(pokemon['Blastoise'], 180, PokemonType.WATER, (attacks['Surf'], attacks['Hydro Bazooka']), 3, level=102)
     pokemon = {
-        bulbasaur.name():    bulbasaur,
-        ivysaur.name():      ivysaur,
-        venusaur.name():     venusaur,
-        venusaur_ex.name():  venusaur_ex,
-        charmander.name():   charmander,
-        charmeleon.name():   charmeleon,
-        charizard.name():    charizard,
-        charizard_ex.name(): charizard_ex,
-        squirtle.name():     squirtle,
-        wartortle.name():    wartortle,
-        blastoise.name():    blastoise,
-        blastoise_ex.name(): blastoise_ex
+        bulbasaur.get_name():    bulbasaur,
+        ivysaur.get_name():      ivysaur,
+        venusaur.get_name():     venusaur,
+        venusaur_ex.get_name():  venusaur_ex,
+        charmander.get_name():   charmander,
+        charmeleon.get_name():   charmeleon,
+        charizard.get_name():    charizard,
+        charizard_ex.get_name(): charizard_ex,
+        squirtle.get_name():     squirtle,
+        wartortle.get_name():    wartortle,
+        blastoise.get_name():    blastoise,
+        blastoise_ex.get_name(): blastoise_ex
     }
     return pokemon
+
+def generate_trainers() -> dict[str,Trainer]:
+    oak      = Trainer("Professor's Research", "Draw 2 cards",                                              "draw",      (2,), CardType.SUPPORTER)
+    pokeball = Trainer("Pokeball",             "Put a random Basic Pokemon from your bench into your hand", "draw_basic", (1,), CardType.ITEM)
+    return {
+        oak.name: oak,
+        pokeball.name: pokeball
+    }

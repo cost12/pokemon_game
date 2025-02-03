@@ -35,8 +35,8 @@ def test_generate_pokemon_cards():
     cards    = generate_pokemon_cards(pokemon, attacks)
 
     for name, card in cards.items():
-        assert name == card.name()
-        assert isinstance(card.name(), str)
+        assert name == card.get_name()
+        assert isinstance(card.get_name(), str)
         assert isinstance(card.pokemon, Pokemon)
         assert isinstance(card.hit_points, int)
         assert card.hit_points > 0

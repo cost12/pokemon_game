@@ -1,7 +1,7 @@
 from typing import Any
 
 from pokemon.pokemon_types import EnergyContainer
-from pokemon.pokemon_card import PokemonCard, Attack, stage_to_str
+from pokemon.pokemon_card import PlayingCard, PokemonCard, Trainer, Fossil, Attack, stage_to_str
 from pokemon.pokemon_battle import ActivePokemon, OwnDeckView, OpponentDeckView
 
 def visualize_energies(energy_container:EnergyContainer, indent:str="") -> None:
@@ -21,7 +21,7 @@ def visualize_active_pokemon(pokemon:ActivePokemon, indent:str="") -> None:
     if pokemon is None:
         print(f"{indent} None")
         return
-    print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().name()} {pokemon.hp()}/{pokemon.active_card().hit_points} HP")
+    print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().get_name()} {pokemon.hp()}/{pokemon.active_card().hit_points} HP")
     if not pokemon.active_card().is_basic():
         print(f"{indent}Evolves from {pokemon.active_card().evolves_from().name}")
     i=0
@@ -33,11 +33,11 @@ def visualize_active_pokemon(pokemon:ActivePokemon, indent:str="") -> None:
     print(f"{indent}Resistance: {pokemon.active_card().get_resistance().name if pokemon.active_card().get_resistance() is not None else ""}")
     visualize_energies(pokemon.energies, f"{indent}Energy: ")
 
-def visualize_card(card:PokemonCard, indent:str="") -> None:
+def visualize_pokemon_card(card:PokemonCard, indent:str="") -> None:
     if card is None:
         print(f"{indent} None")
         return
-    print(f"{indent}{card.card_type.name} {stage_to_str(card.pokemon.get_stage())} {card.name()} {card.hit_points} HP")
+    print(f"{indent}{card.card_type.name} {stage_to_str(card.pokemon.get_stage())} {card.get_name()} {card.hit_points} HP")
     if not card.is_basic():
         print(f"{indent}Evolves from {card.evolves_from().name}")
     i=0
@@ -52,13 +52,13 @@ def visualize_active_pokemon_quick(pokemon:ActivePokemon, indent:str="") -> None
     if pokemon is None:
         print(f"{indent} None")
     else:
-        print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().name()} {pokemon.hp()} HP")
+        print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().get_name()} {pokemon.hp()} HP")
 
-def visualize_card_quick(card:PokemonCard, indent:str="") -> None:
+def visualize_pokemon_card_quick(card:PokemonCard, indent:str="") -> None:
     if card is None:
         print(f"{indent} None")
     else:
-        print(f"{indent}{card.card_type.name} {stage_to_str(card.pokemon.get_stage())} {card.name() if card is not None else "None"} {card.hit_points} HP")
+        print(f"{indent}{card.card_type.name} {stage_to_str(card.pokemon.get_stage())} {card.get_name() if card is not None else "None"} {card.hit_points} HP")
 
 def visualize_actives(active:tuple[ActivePokemon], indent:str="") -> None:
     print(f"{indent}Active:")
@@ -72,7 +72,35 @@ def visualize_actives(active:tuple[ActivePokemon], indent:str="") -> None:
     else:
         print(f"{indent}Empty")
 
-def visualize_card_list(cards:tuple[PokemonCard], type:str, indent:str="") -> None:
+def visualize_trainer_quick(card:Trainer, indent:str="") -> None:
+    print(f"{indent}{card.get_card_type().name} {card.get_name()}")
+
+def visualize_fossil_quick(card:Fossil, indent:str="") -> None:
+    print(f"{indent}{card.get_card_type().name} {card.get_name()} {card.hit_points} HP")
+
+def visualize_fossil(card:Fossil, indent:str="") -> None:
+    print(f"{indent}{card.get_card_type().name} {card.get_name()} {card.hit_points} HP\n{card.text}")
+
+def visualize_trainer(card:Trainer, indent:str="") -> None:
+    print(f"{indent}{card.get_card_type().name} {card.get_name()}\n{card.text}")
+
+def visualize_card_quick(card:PlayingCard, indent:str="") -> None:
+    if card.is_pokemon():
+        visualize_pokemon_card_quick(card, indent)
+    elif card.is_trainer():
+        visualize_trainer_quick(card, indent)
+    else:
+        visualize_fossil_quick(card, indent)
+
+def visualize_card(card:PlayingCard, indent:str="") -> None:
+    if card.is_pokemon():
+        visualize_pokemon_card(card, indent)
+    elif card.is_trainer():
+        visualize_trainer(card, indent)
+    else:
+        visualize_fossil(card, indent)
+
+def visualize_card_list(cards:tuple[PlayingCard], type:str, indent:str="") -> None:
     print(f"{indent}{type}:")
     i=0
     for card in cards:

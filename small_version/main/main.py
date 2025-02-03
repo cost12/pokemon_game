@@ -1,6 +1,6 @@
 from pokemon.user import User
-from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
-from pokemon.pokemon_battle import Deck, Battle, battle_factory
+from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards, generate_trainers
+from pokemon.pokemon_battle import Deck, battle_factory
 from pokemon.pokemon_types import EnergyType
 from pokemon.pokemon_control import battle_control, CommandLineBattleController
 import pokemon.utils as utils
@@ -9,19 +9,26 @@ def main():
     # generate pokemon/cards/data
     attacks = generate_attacks()
     pokemon = generate_pokemon()
-    all_cards = generate_pokemon_cards(pokemon,attacks)
+    all_pokemon = generate_pokemon_cards(pokemon, attacks)
+    all_trainers = generate_trainers()
 
     # make a list of all usable cards, and double them so each user has access to all cards 
-    cards = list(all_cards.values())
+    cards = list(all_pokemon.values())
     cards.extend(cards)
 
     # make a deck both users can use
-    cards1 = cards[0:20]
-    cards2 = cards[-20:]
+    cards1 = cards[0:16]
+    cards1.extend(all_trainers.values())
+    cards1.extend(all_trainers.values())
+    cards2 = cards[-16:]
+    cards2.extend(all_trainers.values())
+    cards2.extend(all_trainers.values())
     deck1 = Deck('deck1', tuple(cards1), (EnergyType.WATER,EnergyType.FIRE,EnergyType.GRASS))
     deck2 = Deck('deck2', tuple(cards2), (EnergyType.WATER,EnergyType.FIRE,EnergyType.GRASS))
 
     # create users and give them cards/decks to battle with
+    cards.extend(all_trainers.values())
+    cards.extend(all_trainers.values())
     card_dict1 = utils.tuple_to_counts(cards)
     card_dict2 = utils.tuple_to_counts(cards)
     user1 = User('p1', card_dict1)
