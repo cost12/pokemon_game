@@ -17,10 +17,10 @@ def main():
     cards.extend(cards)
 
     # make a deck both users can use
-    cards1 = cards[0:16]
+    cards1 = cards[0:14]
     cards1.extend(all_trainers.values())
     cards1.extend(all_trainers.values())
-    cards2 = cards[-16:]
+    cards2 = cards[-14:]
     cards2.extend(all_trainers.values())
     cards2.extend(all_trainers.values())
     deck1 = Deck('deck1', tuple(cards1), (EnergyType.WATER,EnergyType.FIRE,EnergyType.GRASS))

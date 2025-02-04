@@ -442,6 +442,22 @@ class DrawBasicEffect(Effect):
             return True
         return False
 
+class SwapActiveEffect(Effect):
+    def effect_name(self) -> str:
+        return "swap_active"
+
+    def effect_description(self) -> str:
+        return "Switch the defending pokemon with a benched pokemon"
+
+    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
+        if not battle.battle_going() or battle.need_to_replace_active():
+            return False
+        return battle.defending_deck().bench_size() > 0 and len(inputs) == 0
+
+    def effect(self, battle:BattleState, inputs:tuple) -> bool:
+        pass
+
+
 class Action:
 
     def action(self, battle:BattleState, inputs:tuple) -> bool:

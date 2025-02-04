@@ -101,7 +101,7 @@ class ScoreAction(CommandLineAction):
         return len(inputs) == 0, tuple()
 
     def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
-        print(f"Team1: {score[0]} Team2: {score[0]}")
+        print(f"Team1: {score[0]} Team2: {score[1]}")
 
 class ViewOwnSetupAction(CommandLineAction):
     def action_name(self) -> str:

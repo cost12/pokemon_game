@@ -87,9 +87,11 @@ def generate_pokemon_cards(pokemon:dict[str,Pokemon], attacks:dict[str,Attack]) 
     return pokemon
 
 def generate_trainers() -> dict[str,Trainer]:
-    oak      = Trainer("Professor's Research", "Draw 2 cards",                                              "draw",      (2,), CardType.SUPPORTER)
-    pokeball = Trainer("Pokeball",             "Put a random Basic Pokemon from your bench into your hand", "draw_basic", (1,), CardType.ITEM)
+    oak      = Trainer("Professor's Research", "Draw 2 cards",                                                        "draw",        (2,),    CardType.SUPPORTER)
+    sabrina  = Trainer("Sabrina",              "Your opponent swaps their active pokemon with a card on their bench", "swap_active", tuple(), CardType.SUPPORTER)
+    pokeball = Trainer("Pokeball",             "Put a random Basic Pokemon from your bench into your hand",           "draw_basic",  (1,),    CardType.ITEM)
     return {
         oak.name: oak,
+        sabrina.name: sabrina,
         pokeball.name: pokeball
     }
