@@ -1,9 +1,11 @@
 from pokemon.pokemon_card import PokemonCard, PlayingCard, CardType
 from pokemon.pokemon_types import EnergyType, Condition, EnergyContainer
+import pokemon.utils as utils
 
 import random
 from dataclasses import dataclass
 from collections import deque
+from enum import Enum
 
 class ActivePokemon:
 
@@ -181,10 +183,14 @@ class DeckSetup:
         card = self.hand.pop(hand_index)
         self.active.append(ActivePokemon([card]))
 
-    def replace_starter(self, active_index:int) -> None:
+    def set_starter(self, active_index:int) -> None:
         if active_index > 0:
-            card = self.active.pop(active_index)
-            self.active[0] = card
+            card = self.active[0]
+            self.active[0] = self.active[active_index]
+            if card is not None:
+                self.active[active_index] = card
+            else:
+                self.active.pop(active_index)
 
 @dataclass
 class OpponentDeckView:
@@ -289,9 +295,16 @@ class Rules:
                 card_names[card.get_name()] = 1
         return has_basic or not self.BASIC_REQUIRED
 
+class ActionPriority(Enum):
+    REPLACE_ACTIVE = 1
+    AFTER_REPLACE  = 2
+    EFFECT         = 3
+    RETALIATION    = 4
+    END_TURN       = 5
+
 class BattleState:
 
-    def __init__(self, deck1:Deck, deck2:Deck, rules:Rules|None, *, turn_number:int=0, next_move_team1:bool=True, team1_points:int=0, team2_points:int=0, team1_ready:bool=False, team2_ready:bool=False, current_turn:Turn|None=None):
+    def __init__(self, deck1:Deck, deck2:Deck, rules:Rules|None, *, turn_number:int=0, next_move_team1:bool=True, team1_points:int=0, team2_points:int=0, team1_ready:bool=False, team2_ready:bool=False, current_turn:Turn|None=None, action_queue:utils.PriorityQueue[tuple[str,tuple]]|None=None):
         self.rules = rules if rules is not None else Rules()
         assert rules.is_valid_deck(deck1)
         assert rules.is_valid_deck(deck2)
@@ -304,6 +317,26 @@ class BattleState:
         self.team1_ready = team1_ready
         self.team2_ready = team2_ready
         self.current_turn = current_turn if current_turn is not None else Turn()
+        self.action_queue = action_queue if action_queue is not None else utils.PriorityQueue[tuple[str,tuple]]()
+        self.current_action = None
+
+    def next_action(self) -> str:
+        if self.action_queue.size() > 0:
+            return self.action_queue.top()[0]
+        return None
+    
+    def push_action(self, action:tuple[str,tuple], priority:int) -> None:
+        self.action_queue.push(priority, action)
+
+    def pop_action(self) -> tuple[str,tuple]:
+        self.current_action = self.action_queue.pop()
+        return self.current_action
+    
+    def end_current_action(self) -> None:
+        self.current_action = None
+    
+    def queued_actions(self) -> int:
+        return self.action_queue.size()
 
     def team1_move(self) -> bool:
         return self.next_move_team1
@@ -371,6 +404,9 @@ class BattleState:
         self.deck1.between_turns()
         self.deck2.between_turns()
 
+    def ready_for_action(self, action:str) -> bool:
+        return self.battle_going() and (self.queued_actions() == 0 or self.current_action is not None and self.current_action[0] == action)
+
 class Effect:
     def effect_name(self) -> str:
         pass
@@ -392,7 +428,7 @@ class DrawCardsEffect(Effect):
         return "Draws cards from the deck to the hand"
 
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if not battle.battle_going() or battle.need_to_replace_active():
+        if not battle.ready_for_action(self.effect_name()):
             return False
         if len(inputs) == 1:
             try:
@@ -421,7 +457,7 @@ class DrawBasicEffect(Effect):
         return "Draw random basic cards from the deck into the hand"
 
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if not battle.battle_going() or battle.need_to_replace_active():
+        if not battle.ready_for_action(self.effect_name()):
             return False
         if len(inputs) == 1:
             try:
@@ -442,6 +478,42 @@ class DrawBasicEffect(Effect):
             return True
         return False
 
+class SwitchMoveEffect(Effect):
+    def effect_name(self) -> str:
+        return "switch_move"
+
+    def effect_description(self) -> str:
+        return "Switch the move from one player to another"
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.ready_for_action(self.effect_name()):
+            return False
+        return battle.next_action() == self.effect_name()
+
+    def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if self.is_valid(battle, inputs):
+            battle.next_move_team1 = not battle.next_move_team1
+            return True
+        return False
+    
+class EndTurnEffect(Effect):
+    def effect_name(self) -> str:
+        return "end_turn_effect"
+
+    def effect_description(self) -> str:
+        return "End the player's turn"
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.ready_for_action(self.effect_name()):
+            return False
+        return battle.next_action() == self.effect_name()
+
+    def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if self.is_valid(battle, inputs):
+            battle.end_turn()
+            return True
+        return False
+
 class SwapActiveEffect(Effect):
     def effect_name(self) -> str:
         return "swap_active"
@@ -450,12 +522,15 @@ class SwapActiveEffect(Effect):
         return "Switch the defending pokemon with a benched pokemon"
 
     def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
-        if not battle.battle_going() or battle.need_to_replace_active():
+        if not battle.ready_for_action(self.effect_name()):
             return False
         return battle.defending_deck().bench_size() > 0 and len(inputs) == 0
 
     def effect(self, battle:BattleState, inputs:tuple) -> bool:
-        pass
+        battle.next_move_team1 = not battle.next_move_team1
+        battle.push_action(("select_active", tuple()), ActionPriority.EFFECT.value)
+        battle.push_action(("switch_move", tuple()), ActionPriority.EFFECT.value)
+        return True
 
 
 class Action:
@@ -496,16 +571,15 @@ class PlayTrainerAction(Action):
         return False
 
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if not battle.battle_going() or battle.need_to_replace_active():
-            return False
-        hand_index = inputs[0]
-        deck = battle.current_deck()
-        if battle.is_valid_trainer_index(hand_index, deck):
-            if deck.hand[hand_index].get_card_type() == CardType.SUPPORTER and battle.current_turn.used_supporters >= battle.rules.SUPPORTERS_PER_TURN:
-                return False
-            effect, inputs = deck.hand[hand_index].get_action()
-            if effect in battle.rules.get_effects():
-                return battle.rules.get_effects()[effect].is_valid(battle, inputs)
+        if battle.ready_for_action(self.action_name()):
+            hand_index = inputs[0]
+            deck = battle.current_deck()
+            if battle.is_valid_trainer_index(hand_index, deck):
+                if deck.hand[hand_index].get_card_type() == CardType.SUPPORTER and battle.current_turn.used_supporters >= battle.rules.SUPPORTERS_PER_TURN:
+                    return False
+                effect, inputs = deck.hand[hand_index].get_action()
+                if effect in battle.rules.get_effects():
+                    return battle.rules.get_effects()[effect].is_valid(battle, inputs)
         return False
 
     def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
@@ -603,7 +677,7 @@ class PlayBasicAction(Action):
         return False
 
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if not battle.battle_going() or battle.need_to_replace_active():
+        if not battle.ready_for_action(self.action_name()):
             return False
         hand_index = inputs[0]
         deck = battle.current_deck()
@@ -644,7 +718,7 @@ class EvolveAction(Action):
         return False
 
     def is_valid(self, battle:BattleState, inputs:tuple[int,int]) -> bool:
-        if not battle.battle_going() or battle.need_to_replace_active():
+        if not battle.ready_for_action(self.action_name()):
             return False
         hand_index, active_index = inputs
         deck = battle.current_deck()
@@ -700,13 +774,14 @@ class AttackAction(Action):
                 else:
                     battle.team2_points += 1 if attacked.level <= 100 else 2
                 battle.next_move_team1 = not battle.next_move_team1
-            else:
-                battle.end_turn()
+                battle.push_action(('select_active', tuple()), ActionPriority.REPLACE_ACTIVE.value)
+                battle.push_action(('switch_move', tuple()), ActionPriority.AFTER_REPLACE.value)
+            battle.push_action(('end_turn_effect', tuple()), ActionPriority.END_TURN.value)
             return True
         return False
 
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if not battle.need_to_replace_active() and battle.battle_going():
+        if battle.ready_for_action(self.action_name()):
             deck = battle.current_deck()
             attack_index = inputs[0]
             if attack_index >= 0 and attack_index < len(deck.active[0].active_card().attacks):
@@ -749,7 +824,7 @@ class RetreatAction(Action):
         return False
 
     def is_valid(self, battle:BattleState, inputs:tuple[int, EnergyContainer]) -> bool:
-        if not battle.battle_going() or battle.need_to_replace_active():
+        if not battle.ready_for_action(self.action_name()):
             return False
         active_index, energies = inputs
         deck = battle.current_deck()
@@ -799,7 +874,7 @@ class PlaceEnergyAction(Action):
         return False
 
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if not battle.battle_going() or battle.need_to_replace_active():
+        if not battle.ready_for_action(self.action_name()):
             return False
         active_index = inputs[0]
         deck = battle.current_deck()
@@ -829,26 +904,22 @@ class PlaceEnergyAction(Action):
     
     def input_format(self) -> str:
         return "place_energy x"
-
-class SelectAction(Action):
+    
+class SelectActiveAction(Action):
     def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
         if self.is_valid(battle, inputs):
             bench_index = inputs[0]
             deck = battle.current_deck()
-            deck.replace_starter(bench_index)
-            if battle.need_to_replace_active(): # if the other team also needs to replace
-                self.next_move_team1 = not self.next_move_team1
-            else:
-                self.next_move_team1 = battle.team1_turn()
-                if battle.current_turn.attacked:
-                    battle.end_turn()
+            deck.set_starter(bench_index)
             return True
-        return False  
+        return False
 
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+        if not battle.ready_for_action(self.action_name()):
+            return False
         bench_index = inputs[0]
         deck = battle.current_deck()
-        return battle.need_to_replace_active() and battle.is_valid_bench_index(bench_index, deck)
+        return battle.next_action() == self.action_name() and battle.is_valid_bench_index(bench_index, deck)
 
     def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
         if len(inputs) == 1:
@@ -867,13 +938,13 @@ class SelectAction(Action):
         return False
 
     def action_name(self) -> str:
-        return "select"
+        return "select_active"
 
     def action_description(self) -> str:
         return "Select a new active pokemon"
     
     def input_format(self) -> str:
-        return "select x"
+        return "select_active x"
 
 class EndTurnAction(Action):
     def action(self, battle:BattleState, inputs:tuple) -> bool:
@@ -883,7 +954,7 @@ class EndTurnAction(Action):
         return False
 
     def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
-        return battle.battle_going() and not battle.need_to_replace_active()
+        return battle.ready_for_action(self.action_name()) and len(inputs) == 0
 
     def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
         return len(inputs) == 0, inputs
@@ -919,8 +990,17 @@ class Battle:
     def action(self, action:str, inputs:tuple) -> bool:
         if action in self.state.rules.get_actions():
             success = self.state.rules.get_actions()[action].action(self.state, inputs)
-            return success
-        return False
+            if not success:
+                return success
+        while self.state.queued_actions() > 0:
+            sub_action, sub_inputs = self.state.pop_action()
+            if sub_action in self.state.rules.get_actions():
+                self.state.rules.get_actions()[sub_action].action(self.state, sub_inputs)
+            elif sub_action in self.state.rules.get_effects():
+                self.state.rules.get_effects()[sub_action].effect(self.state, sub_inputs)
+            else:
+                print(f"error: {sub_action}: {sub_inputs}")
+        return success
     
     def available_actions(self) -> dict[str,Action]:
         return {name:action for name,action in self.state.rules.get_actions().items() if action.could_act(self.state)}
@@ -933,22 +1013,25 @@ class Battle:
 
 def standard_actions() -> set[Action]:
     actions = set[Action]([
+        PlayTrainerAction(),
         SetupAction(),
         PlayBasicAction(),
         EvolveAction(),
         AttackAction(),
         RetreatAction(),
         PlaceEnergyAction(),
-        SelectAction(),
+        SelectActiveAction(),
         EndTurnAction(),
-        PlayTrainerAction(),
     ])
     return actions
 
 def standard_effects() -> set[Effect]:
     return set[Effect]([
         DrawCardsEffect(),
-        DrawBasicEffect()
+        DrawBasicEffect(),
+        SwitchMoveEffect(),
+        EndTurnEffect(),
+        SwapActiveEffect(),
     ])
 
 def battle_factory(deck1:Deck, deck2:Deck, rules:Rules|None=None, actions:set[Action]|None=None, effects:set[Effect]|None=None):

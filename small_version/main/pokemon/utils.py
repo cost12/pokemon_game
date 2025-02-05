@@ -1,6 +1,7 @@
 from typing import Any
 from frozendict import frozendict
 from dataclasses import dataclass, field
+from heapq import heappop, heappush
 
 def tuple_to_counts(tup:tuple[Any]) -> dict[Any,int]:
     """Takes in a list of hashable objects and returns a dict where each item is mapped to the number of times it appears
@@ -69,3 +70,23 @@ class Collection[T]:
             if count > self.size_of(item) and (ignore is None or not item == ignore):
                 return False
         return self.size() >= items.size()
+    
+class PriorityQueue[T]:
+
+    def __init__(self):
+        self.items = list[T]()
+
+    def push(self, priority:int, item:T) -> None:
+        heappush(self.items, (priority, len(self.items), item))
+
+    def pop(self) -> T:
+        priority, count, item = heappop(self.items)
+        return item
+    
+    def top(self) -> T:
+        priority, count, item = heappop(self.items)
+        heappush(self.items, (priority, count, item))
+        return item
+    
+    def size(self) -> int:
+        return len(self.items)

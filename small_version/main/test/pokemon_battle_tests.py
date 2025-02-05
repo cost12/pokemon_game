@@ -1,4 +1,4 @@
-from pokemon.pokemon_battle import ActivePokemon, DeckSetup, Deck, Battle, Rules, battle_factory
+from pokemon.pokemon_battle import ActivePokemon, DeckSetup, Deck, Battle, Rules, battle_factory, standard_actions, standard_effects
 from pokemon.pokemon_types import Condition, EnergyContainer, EnergyType
 from pokemon.pokemon_card import PokemonCard
 from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
@@ -231,7 +231,7 @@ def test_evolve():
 # FULL BATTLE TESTING
 def deterministic_battle_setup(deck_cards:list[PokemonCard]) -> Battle:
     deck = Deck("name1", deck_cards, (EnergyType.GRASS,))
-    rules = Rules(SHUFFLE=False, DUPLICATE_LIMIT=3, DECK_SIZE=len(deck.cards))
+    rules = Rules(standard_actions(), standard_effects(), SHUFFLE=False, DUPLICATE_LIMIT=3, DECK_SIZE=len(deck.cards))
     return battle_factory(deck, deck, rules)
 
 def test_battle():
@@ -291,8 +291,8 @@ def test_battle():
     assert battle.team1_move()
     assert battle.state.team2_points == 1
     assert battle.team1_move()
-    assert list(battle.available_actions().keys()) == ['select']
-    assert battle.action('select', (1,))
+    assert list(battle.available_actions().keys()) == ['select_active']
+    assert battle.action('select_active', (1,))
     # Team 1 turn 7: place energy 2
     assert battle.team1_turn()
     assert battle.action('place_energy', (0,))
