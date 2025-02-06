@@ -1,16 +1,23 @@
-from pokemon.pokemon_battle import ActivePokemon, DeckSetup, Deck, Battle, Rules, battle_factory, standard_actions, standard_effects
+from pokemon.pokemon_battle import ActivePokemon, DeckSetup, Deck, Action, Battle, Rules, battle_factory, standard_actions, standard_effects
 from pokemon.pokemon_types import Condition, EnergyContainer, EnergyType
-from pokemon.pokemon_card import PokemonCard
-from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
+from pokemon.pokemon_card import PokemonCard, PlayingCard, Trainer
+from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards, generate_trainers
 
 from frozendict import frozendict
 import pytest
 
 # TESTING FOR ActivePokemon
-def get_cards() -> dict[str, PokemonCard]:
+def get_cards() -> dict[str, PlayingCard]:
     attacks = generate_attacks()
     pokemon = generate_pokemon()
-    return generate_pokemon_cards(pokemon, attacks)
+    trainers = generate_trainers()
+    pokemon_cards = generate_pokemon_cards(pokemon, attacks)
+    cards = dict[PlayingCard]()
+    for name,trainer in trainers.items():
+        cards[name] = trainer
+    for name,pokemon_card in pokemon_cards.items():
+        cards[name] = pokemon_card
+    return cards
 
 def get_bulbasaur(cards:dict[str, PokemonCard]):
     return ActivePokemon([cards['Bulbasaur']])
@@ -319,5 +326,84 @@ def test_battle():
     assert battle.state.deck2.active[0] is None
     assert battle.is_over()
     assert list(battle.available_actions().keys()) == []
+
+def check_actions(actions:dict[str,Action], should_have:list[str]):
+    action_list = list(actions.keys())
+    action_list.sort()
+    should_have.sort()
+    return action_list == should_have
+
+def test_battle_trainers():
+    cards = get_cards()
+    deck_cards = [
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Sabrina'],
+        cards['Bulbasaur'],
+        cards['Venusaur'],
+
+        cards['Pokeball'],
+        cards['Venusaur ex'],
+        cards["Professor's Research"],
+        cards["Professor's Research"],
+        cards['Pokeball'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex'],
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Sabrina'],
+        cards['Venusaur'],
+        cards['Venusaur ex']
+    ]
+    battle = deterministic_battle_setup(deck_cards)
+    assert battle.state.rules.MAX_HAND_SIZE == 10
+    assert len(battle.state.deck2.hand) == 5
+    
+    # setup: both teams place Bulbasuar to active
+    assert check_actions(battle.available_actions(), ['setup'])
+    assert battle.action('setup', (True,  0))
+    assert battle.action('setup', (False, 3, 0))
+    assert len(battle.state.deck2.hand) == 3
+    
+    # Team 1 turn 1: Pokeball is drawn and used
+    assert battle.team1_turn()
+    assert check_actions(battle.available_actions(), ['play_basic', 'end_turn', 'trainer'])
+    assert len(battle.state.deck1.hand) == 5
+    assert battle.action('trainer', (4,))
+    assert battle.action('end_turn', tuple())
+    
+    # Team 2 turn 2: place energy on active Bulbasaur, Pokeball is drawn
+    assert not battle.team1_turn()
+    assert len(battle.state.deck2.hand) == 4
+    assert check_actions(battle.available_actions(), ['end_turn', 'trainer', 'place_energy'])
+    assert battle.action('place_energy', (0,))
+    assert battle.state.deck2.active[0].energies.size_of(EnergyType.GRASS) == 1
+    assert check_actions(battle.available_actions(), ['end_turn', 'trainer', 'retreat'])
+    assert battle.action('trainer', (3,))
+    assert check_actions(battle.available_actions(), ['end_turn', 'play_basic', 'retreat'])
+    assert battle.action('play_basic', (3,))
+    assert battle.action('end_turn', tuple())
+    
+    # Team 1 turn 3: draw Venusaur, place energy on active, play Sabrina
+    assert battle.team1_turn()
+    assert battle.action('place_energy', (0,))
+    assert battle.action('trainer', (1,))
+
+    # Team 2 turn 3 move: select a new active
+    assert battle.team1_turn()
+    assert not battle.team1_move()
+    assert check_actions(battle.available_actions(), ['select_active'])
+    assert not battle.action('select_active', (0,))
+    assert battle.action('select_active', (1,))
+
+    # Team 1 finish turn 3: end_turn
+    assert battle.team1_turn()
+    assert battle.team1_move()
+    assert check_actions(battle.available_actions(), ['evolve', 'play_basic', 'end_turn'])
+    assert battle.action('end_turn', tuple())
+
+    assert same_cards(deck_cards, battle.state.deck1)
+    assert same_cards(deck_cards, battle.state.deck2)
 
 # END OF FULL BATTLE TESTING
