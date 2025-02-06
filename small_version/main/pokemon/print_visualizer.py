@@ -52,7 +52,7 @@ def visualize_active_pokemon_quick(pokemon:ActivePokemon, indent:str="") -> None
     if pokemon is None:
         print(f"{indent} None")
     else:
-        print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().get_name()} {pokemon.hp()} HP")
+        print(f"{indent}{pokemon.active_card().card_type.name} {stage_to_str(pokemon.active_card().pokemon.get_stage())} {pokemon.active_card().get_name()} {pokemon.hp()} HP Energy: {", ".join([f"{energy.name} {count}" for energy,count in pokemon.get_energies().energies.items()])}")
 
 def visualize_pokemon_card_quick(card:PokemonCard, indent:str="") -> None:
     if card is None:

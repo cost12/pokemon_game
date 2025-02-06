@@ -235,9 +235,9 @@ class CommandLineBattleController(BattleController):
             ViewOpponentActiveAction()
         ])
         commandline_actions = {action.action_name():action for action in commands}
-        user_input = input(f"\n{self.name} your action: ")
+        user_input = input(f"\n{self.name}, select your action: ")
         valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, commandline_actions, available_actions, score)
         while not valid:
-            user_input = input(f"\n{self.name} your action: ")
+            user_input = input(f"\n{self.name}, select your action: ")
             valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, commandline_actions, available_actions, score)
         return move, inputs
