@@ -206,8 +206,9 @@ class ViewOpponentActiveAction(CommandLineAction):
 
 class CommandLineBattleController(BattleController):
 
-    def __init__(self):
+    def __init__(self, name:str):
         super().__init__()
+        self.name = name
 
     def __prompt_command(self, user_input:str, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool,str,tuple]:
         tokens = user_input.split(" ")
@@ -234,9 +235,9 @@ class CommandLineBattleController(BattleController):
             ViewOpponentActiveAction()
         ])
         commandline_actions = {action.action_name():action for action in commands}
-        user_input = input("\nSelect your action: ")
+        user_input = input(f"\n{self.name} your action: ")
         valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, commandline_actions, available_actions, score)
         while not valid:
-            user_input = input("\nSelect your action: ")
+            user_input = input(f"\n{self.name} your action: ")
             valid, move, inputs = self.__prompt_command(user_input, own_deck, opponent_deck, commandline_actions, available_actions, score)
         return move, inputs

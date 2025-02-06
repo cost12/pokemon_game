@@ -39,7 +39,7 @@ def main():
 
     # start the battle
     battle = battle_factory(deck1, deck2)
-    battle_control(battle, CommandLineBattleController(), CommandLineBattleController())
+    battle_control(battle, CommandLineBattleController("Team 1"), CommandLineBattleController("Team 2"))
 
 if __name__ == "__main__":
     main()

@@ -279,6 +279,9 @@ def test_battle():
     assert battle.action('place_energy', (0,))
     assert battle.action('attack', (0,))
     # Team 1 turn 5: place energy 1 on bench
+    actions = list(battle.available_actions().keys())
+    actions.sort()
+    assert actions == ['end_turn', 'evolve', 'place_energy']
     assert battle.team1_turn()
     assert battle.state.deck1.active[0].hp() == 30
     assert battle.action('place_energy', (1,))

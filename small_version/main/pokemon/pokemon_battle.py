@@ -321,9 +321,11 @@ class BattleState:
         self.current_action = None
 
     def next_action(self) -> str:
-        if self.action_queue.size() > 0:
-            return self.action_queue.top()[0]
-        return None
+        if self.current_action is None:
+            if self.action_queue.size() > 0:
+                return self.action_queue.top()[0]
+            return None
+        return self.current_action[0]
     
     def push_action(self, action:tuple[str,tuple], priority:int) -> None:
         self.action_queue.push(priority, action)
@@ -336,7 +338,7 @@ class BattleState:
         self.current_action = None
     
     def queued_actions(self) -> int:
-        return self.action_queue.size()
+        return self.action_queue.size() + (0 if self.current_action is None else 1)
 
     def team1_move(self) -> bool:
         return self.next_move_team1
@@ -405,7 +407,7 @@ class BattleState:
         self.deck2.between_turns()
 
     def ready_for_action(self, action:str) -> bool:
-        return self.battle_going() and (self.queued_actions() == 0 or self.current_action is not None and self.current_action[0] == action)
+        return self.battle_going() and (self.queued_actions() == 0 or (self.current_action is not None and self.current_action[0] == action))
 
 class Effect:
     def effect_name(self) -> str:
@@ -504,14 +506,13 @@ class EndTurnEffect(Effect):
         return "End the player's turn"
 
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if not battle.ready_for_action(self.effect_name()):
-            return False
-        return battle.next_action() == self.effect_name()
+        if battle.ready_for_action(self.effect_name()):
+            return battle.next_action() == self.effect_name() and len(inputs) == 0
+        return False
 
     def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
         if self.is_valid(battle, inputs):
-            battle.end_turn()
-            return True
+            return battle.end_turn()
         return False
 
 class SwapActiveEffect(Effect):
@@ -718,16 +719,15 @@ class EvolveAction(Action):
         return False
 
     def is_valid(self, battle:BattleState, inputs:tuple[int,int]) -> bool:
-        if not battle.ready_for_action(self.action_name()):
-            return False
-        hand_index, active_index = inputs
-        deck = battle.current_deck()
-        valid1 = battle.is_valid_hand_index(hand_index, deck)
-        valid2 = battle.is_valid_active_index(active_index, deck)
-        if valid1 and valid2 and deck.hand[hand_index].is_pokemon():
-            if deck.active[active_index].turns_in_active >= battle.rules.TURNS_TO_EVOLVE and \
-               deck.hand[hand_index].evolves_from() == deck.active[active_index].active_card().pokemon:
-                return True
+        if battle.ready_for_action(self.action_name()):
+            hand_index, active_index = inputs
+            deck = battle.current_deck()
+            valid1 = battle.is_valid_hand_index(hand_index, deck)
+            valid2 = battle.is_valid_active_index(active_index, deck)
+            if valid1 and valid2 and deck.hand[hand_index].is_pokemon():
+                if deck.active[active_index].turns_in_active >= battle.rules.TURNS_TO_EVOLVE and \
+                deck.hand[hand_index].evolves_from() == deck.active[active_index].active_card().pokemon:
+                    return True
         return False
 
     def is_valid_raw(self, inputs:tuple) -> tuple[bool, tuple]:
@@ -991,13 +991,15 @@ class Battle:
         if action in self.state.rules.get_actions():
             success = self.state.rules.get_actions()[action].action(self.state, inputs)
             if not success:
-                return success
+                return False
+            self.state.end_current_action()
         while self.state.queued_actions() > 0:
             sub_action, sub_inputs = self.state.pop_action()
             if sub_action in self.state.rules.get_actions():
-                self.state.rules.get_actions()[sub_action].action(self.state, sub_inputs)
+                return success
             elif sub_action in self.state.rules.get_effects():
-                self.state.rules.get_effects()[sub_action].effect(self.state, sub_inputs)
+                assert self.state.rules.get_effects()[sub_action].effect(self.state, sub_inputs)
+                self.state.end_current_action()
             else:
                 print(f"error: {sub_action}: {sub_inputs}")
         return success
