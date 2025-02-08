@@ -11,12 +11,22 @@ class Ability:
 
 @dataclass(frozen=True)
 class Attack:
+    id_str:str
     name:str
-    base_damage:int
+    damage_effect:tuple[str,tuple]
     energy_cost:EnergyContainer
     attack_type:PokemonType
     text:str=''
-    effect:str=''
+    effect:tuple[str,tuple]=None
+
+    def base_damage(self) -> int:
+        return self.damage_effect[1][0]
+
+    def get_damage_effect(self) -> tuple[str,tuple]|None:
+        return self.damage_effect
+
+    def get_effect(self) -> tuple[str,tuple]|None:
+        return self.effect
 
 @dataclass(frozen=True)
 class Pokemon:

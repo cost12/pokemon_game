@@ -7,13 +7,12 @@ from frozendict import frozendict
 def test_generate_attacks():
     attacks = generate_attacks()
     
-    for name, attack in attacks.items():
-        assert attack.name == name
+    for id_str, attack in attacks.items():
+        assert attack.id_str == id_str
         assert isinstance(attack.attack_type, PokemonType)
-        assert isinstance(attack.base_damage, int)
-        assert attack.base_damage > 0
+        assert isinstance(attack.base_damage(), int)
+        assert attack.base_damage() > 0
         assert isinstance(attack.text, str)
-        assert isinstance(attack.effect, str)
         assert isinstance(attack.energy_cost, EnergyContainer)
 
 def test_generate_pokemon():
@@ -31,7 +30,7 @@ def test_generate_pokemon():
 
 def test_generate_pokemon_cards():
     attacks  = generate_attacks()
-    pokemon = generate_pokemon()
+    pokemon  = generate_pokemon()
     cards    = generate_pokemon_cards(pokemon, attacks)
 
     for name, card in cards.items():

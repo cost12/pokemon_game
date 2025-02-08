@@ -12,21 +12,60 @@ def main():
     all_pokemon = generate_pokemon_cards(pokemon, attacks)
     all_trainers = generate_trainers()
 
-    # make a list of all usable cards, and double them so each user has access to all cards 
-    cards = list(all_pokemon.values())
-    cards.extend(cards)
+    # choose the cards for the decks
+    cards1 = [
+        all_pokemon['Bulbasaur'],
+        all_pokemon['Bulbasaur'],
+        all_pokemon['Ivysaur'],
+        all_pokemon['Ivysaur'],
+        all_pokemon['Venusaur'],
+        all_pokemon['Venusaur'],
+        all_pokemon['Venusaur ex'],
+        all_pokemon['Charmander'],
+        all_pokemon['Charmander'],
+        all_pokemon['Charmeleon'],
+        all_pokemon['Charmeleon'],
+        all_pokemon['Charizard'],
+        all_pokemon['Charizard'],
+        all_pokemon['Charizard ex'],
+        all_trainers['Pokeball'],
+        all_trainers['Pokeball'],
+        all_trainers['Sabrina'],
+        all_trainers['Sabrina'],
+        all_trainers["Professor's Research"],
+        all_trainers["Professor's Research"],
+    ]
+
+    cards2 = [
+        all_pokemon['Bulbasaur'],
+        all_pokemon['Bulbasaur'],
+        all_pokemon['Ivysaur'],
+        all_pokemon['Ivysaur'],
+        all_pokemon['Venusaur'],
+        all_pokemon['Venusaur'],
+        all_pokemon['Venusaur ex'],
+        all_pokemon['Squirtle'],
+        all_pokemon['Squirtle'],
+        all_pokemon['Wartortle'],
+        all_pokemon['Wartortle'],
+        all_pokemon['Blastoise'],
+        all_pokemon['Blastoise'],
+        all_pokemon['Blastoise ex'],
+        all_trainers['Pokeball'],
+        all_trainers['Pokeball'],
+        all_trainers['Sabrina'],
+        all_trainers['Sabrina'],
+        all_trainers["Professor's Research"],
+        all_trainers["Professor's Research"],
+    ]
 
     # make a deck both users can use
-    cards1 = cards[0:14]
-    cards1.extend(all_trainers.values())
-    cards1.extend(all_trainers.values())
-    cards2 = cards[-14:]
-    cards2.extend(all_trainers.values())
-    cards2.extend(all_trainers.values())
-    deck1 = Deck('deck1', tuple(cards1), (EnergyType.WATER,EnergyType.FIRE,EnergyType.GRASS))
-    deck2 = Deck('deck2', tuple(cards2), (EnergyType.WATER,EnergyType.FIRE,EnergyType.GRASS))
+    deck1 = Deck('deck1', tuple(cards1), (EnergyType.FIRE,EnergyType.GRASS))
+    deck2 = Deck('deck2', tuple(cards2), (EnergyType.WATER,EnergyType.GRASS))
 
     # create users and give them cards/decks to battle with
+    cards = list(all_pokemon.values())
+    cards.extend(cards)
     cards.extend(all_trainers.values())
     cards.extend(all_trainers.values())
     card_dict1 = utils.tuple_to_counts(cards)

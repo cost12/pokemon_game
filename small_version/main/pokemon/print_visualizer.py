@@ -12,9 +12,9 @@ def visualize_energies(energy_container:EnergyContainer, indent:str="") -> None:
 
 def visualize_attack(attack:Attack, indent:str="") -> None:
     if attack.text == "":
-        print(f"{indent}{attack.name} {attack.base_damage}")
+        print(f"{indent}{attack.name} {attack.base_damage()}")
     else:
-        print(f"{indent}{attack.name} {attack.base_damage}\n{attack.text}")
+        print(f"{indent}{attack.name} {attack.base_damage()}\n{indent}{attack.text}")
     visualize_energies(attack.energy_cost, f"{indent}Cost: ")
 
 def visualize_active_pokemon(pokemon:ActivePokemon, indent:str="") -> None:

@@ -76,16 +76,18 @@ class ListAction(CommandLineAction):
         return 'list valid commands'
 
     def input_format(self) -> str:
-        return 'list'
+        return 'list (x)'
 
     def is_valid_raw(self, inputs:tuple[str], own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> tuple[bool, tuple]:
-        return len(inputs) == 0, tuple()
+        return len(inputs) == 0 or inputs[0] in ['actions','views'], inputs
 
     def action(self, inputs:tuple, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int]) -> None:
-        for _, action in commandline_actions.items():
-            print(f"{action.input_format():20}: {action.action_description()}")
-        for _, action in available_actions.items():
-            print(f"{action.input_format():20}: {action.action_description()}")
+        if len(inputs) == 0 or inputs[0] == 'views':
+            for _, action in commandline_actions.items():
+                print(f"{action.input_format():20}: {action.action_description()}")
+        if len(inputs) == 0 or inputs[0] == 'actions':
+            for _, action in available_actions.items():
+                print(f"{action.input_format():20}: {action.action_description()}")
 
 class ScoreAction(CommandLineAction):
     def action_name(self) -> str:

@@ -1,4 +1,4 @@
-from pokemon.pokemon_card import PokemonCard, PlayingCard, CardType
+from pokemon.pokemon_card import PokemonCard, PlayingCard, CardType, Attack
 from pokemon.pokemon_types import EnergyType, Condition, EnergyContainer
 import pokemon.utils as utils
 
@@ -6,6 +6,7 @@ import random
 from dataclasses import dataclass
 from collections import deque
 from enum import Enum
+from frozendict import frozendict
 
 class ActivePokemon:
 
@@ -29,6 +30,10 @@ class ActivePokemon:
 
     def hp(self) -> int:
         return max(self.active_card().hit_points - self.damage, 0)
+    
+    def heal(self, amount:int) -> None:
+        self.damage -= amount
+        self.damage = max(self.damage, 0)
 
     def end_turn(self) -> None:
         self.turns_in_active += 1
@@ -41,6 +46,10 @@ class ActivePokemon:
 
     def retreat(self, energies:EnergyContainer) -> None:
         self.energies = self.energies.remove_energies(energies)
+
+    def discard_energy(self, energy_type:EnergyContainer, number:int) -> None:
+        if self.energies.size_of(energy_type) > 0:
+            self.energies = self.energies.remove_energies(EnergyContainer(frozendict({energy_type:min(number, self.energies.size_of(energy_type))})))
 
     def take_damage(self, amount:int, damage_type:EnergyType, apply_weakness_resistance:bool) -> 'ActivePokemon':
         total = amount
@@ -248,12 +257,13 @@ class Turn:
         self.used_supporters = 0
         self.retreated       = False
         self.energy_used     = False
-        self.attacked        = False
+        self.attacks_used    = 0
 
 @dataclass(frozen=True)
 class Rules:
     actions           :set['Action']
     effects           :set['Effect']
+    damage_effects    :set['DamageEffect']
     DECK_SIZE         :int  = 20
     DUPLICATE_LIMIT   :int  = 2
     BASIC_REQUIRED    :bool = True
@@ -264,13 +274,17 @@ class Rules:
     MAX_HAND_SIZE     :int  = 10
     FUTURE_ENERGIES   :int  = 1
     SHUFFLE           :bool = True
-    SUPPORTERS_PER_TURN:int  = 1
+    SUPPORTERS_PER_TURN:int = 1
+    ATTACKS_PER_TURN  :int  = 1
 
     def get_actions(self) -> dict[str,'Action']:
         return {action.action_name():action for action in self.actions}
 
     def get_effects(self) -> dict[str,'Effect']:
         return {effect.effect_name():effect for effect in self.effects}
+    
+    def get_damage_effects(self) -> dict[str, 'DamageEffect']:
+        return {effect.effect_name():effect for effect in self.damage_effects}
 
     def is_valid_deck(self, deck:Deck) -> bool:
         """Checks whether a deck is valid for use in a battle
@@ -296,9 +310,10 @@ class Rules:
         return has_basic or not self.BASIC_REQUIRED
 
 class ActionPriority(Enum):
+    ATTACK_EFFECT  = 0
     REPLACE_ACTIVE = 1
     AFTER_REPLACE  = 2
-    EFFECT         = 3
+    LATE_EFFECT    = 3
     RETALIATION    = 4
     END_TURN       = 5
 
@@ -527,9 +542,115 @@ class SwapActiveEffect(Effect):
 
     def effect(self, battle:BattleState, inputs:tuple) -> bool:
         battle.next_move_team1 = not battle.next_move_team1
-        battle.push_action(("select_active", tuple()), ActionPriority.EFFECT.value)
-        battle.push_action(("switch_move", tuple()), ActionPriority.EFFECT.value)
+        battle.push_action(("select_active", tuple()), ActionPriority.LATE_EFFECT.value)
+        battle.push_action(("switch_move", tuple()), ActionPriority.LATE_EFFECT.value)
         return True
+
+class HealEffect(Effect):
+    def effect_name(self) -> str:
+        return 'heal'
+
+    def effect_description(self) -> str:
+        return "Heal an ActivePokemon's health"
+
+    def is_valid(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
+        if battle.ready_for_action(self.effect_name()):
+            if len(inputs) == 2 and inputs[1] > 0:
+                if inputs[0] in {'all','bench'}:
+                    return True
+                else:
+                    try:
+                        active_index = int(inputs[0])
+                    except ValueError:
+                        return False
+                    return battle.is_valid_active_index(active_index, battle.current_deck())
+        return False
+
+    def effect(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
+        if self.is_valid(battle, inputs):
+            who, how_much = inputs
+            if who == 'all':
+                for active in battle.current_deck().active:
+                    active.heal(how_much)
+            elif who == 'bench':
+                for active in battle.current_deck().active[1:]:
+                    active.heal(how_much)
+            else:
+                who = int(who)
+                battle.current_deck().active[who].heal(how_much)
+            return True
+        return False
+    
+class DiscardEnergyEffect(Effect):
+    def effect_name(self) -> str:
+        return 'discard_energy'
+
+    def effect_description(self) -> str:
+        return "Discard energy attached to a pokemon"
+
+    def is_valid(self, battle:BattleState, inputs:tuple[bool,str|int,int,int]) -> bool:
+        if battle.ready_for_action(self.effect_name()):
+            if len(inputs) == 4 and how_many > 0:
+                which_deck, who, how_many, what_type = inputs
+                deck = battle.current_deck() if which_deck else battle.defending_deck()
+                if who == 'random':
+                    return True
+                else:
+                    try:
+                        who = int(who)
+                    except ValueError:
+                        return False
+                    return battle.is_valid_active_index(who, deck)
+        return False
+
+    def effect(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
+        if self.is_valid(battle, inputs):
+            which_deck, who, how_many, what_type = inputs
+            deck = battle.current_deck() if which_deck else battle.defending_deck()
+            if who == 'random':
+                print("do this")
+            else:
+                who = int(who)
+                deck.active[who].discard_energy(what_type)
+            return True
+        return False
+
+class DamageEffect:
+    def effect_name(self) -> str:
+        pass
+
+    def effect_description(self) -> str:
+        pass
+
+    def damage(self, battle:BattleState, attacker:ActivePokemon, attack:Attack, inputs:tuple[int,]) -> bool:
+        pass
+
+class BaseDamageEffect(DamageEffect):
+    def effect_name(self) -> str:
+        return 'base'
+
+    def effect_description(self) -> str:
+        return 'Base damage'
+
+    def damage(self, battle:BattleState, attacker:ActivePokemon, attack:Attack, inputs:tuple[int]) -> bool:
+        return inputs[0]
+    
+class EnergyBoostDamageEffect(DamageEffect):
+    def effect_name(self) -> str:
+        return 'energy_boost'
+
+    def effect_description(self) -> str:
+        return 'Does more damage if this card has more energies attached to it'
+
+    def damage(self, battle:BattleState, attacker:ActivePokemon, attack:Attack, inputs:tuple[int]) -> bool:
+        base, boost, extra_needed, type_needed = inputs
+        if type_needed == EnergyType.COLORLESS:
+            return base + (boost if attacker.energies.size() >= extra_needed + attack.energy_cost.size() else 0)
+        else:
+            if attacker.energies.size_of(type_needed) >= extra_needed + attack.energy_cost.size_of(type_needed) \
+               and attacker.energies.size() >= extra_needed + attack.energy_cost.size():
+                return base + boost
+            return base
 
 
 class Action:
@@ -759,11 +880,18 @@ class AttackAction(Action):
             attack_index = inputs[0]
             deck = battle.current_deck()
             defending_deck = battle.defending_deck()
-            attack = deck.active[0].active_card().attacks[attack_index]
-
+            attacker = deck.active[0]
+            attack = attacker.active_card().attacks[attack_index]
             attacked = defending_deck.active[0].active_card()
-            defending_deck.take_damage(attack.base_damage, deck.active[0].active_card().get_energy_type())
-            battle.current_turn.attacked = True
+            damage_effect, damage_inputs = attack.get_damage_effect()
+            if damage_effect in battle.rules.get_damage_effects():
+                damage = battle.rules.get_damage_effects()[damage_effect].damage(battle, attacker, attack, damage_inputs)
+            else:
+                damage = battle.rules.get_damage_effects()['base'].damage(battle, damage_inputs)
+            defending_deck.take_damage(damage, deck.active[0].active_card().get_energy_type())
+            if attack.get_effect() is not None:
+                battle.push_action(attack.get_effect(), ActionPriority.ATTACK_EFFECT.value)
+            battle.current_turn.attacks_used += 1
             if defending_deck.active[0] is None:
                 if battle.team1_turn():
                     battle.team1_points += 1 if attacked.level <= 100 else 2
@@ -772,7 +900,8 @@ class AttackAction(Action):
                 battle.next_move_team1 = not battle.next_move_team1
                 battle.push_action(('select_active', tuple()), ActionPriority.REPLACE_ACTIVE.value)
                 battle.push_action(('switch_move', tuple()), ActionPriority.AFTER_REPLACE.value)
-            battle.push_action(('end_turn_effect', tuple()), ActionPriority.END_TURN.value)
+            if battle.current_turn.attacks_used >= battle.rules.ATTACKS_PER_TURN:
+                battle.push_action(('end_turn_effect', tuple()), ActionPriority.END_TURN.value)
             return True
         return False
 
@@ -780,7 +909,7 @@ class AttackAction(Action):
         if battle.ready_for_action(self.action_name()):
             deck = battle.current_deck()
             attack_index = inputs[0]
-            if attack_index >= 0 and attack_index < len(deck.active[0].active_card().attacks):
+            if attack_index >= 0 and attack_index < len(deck.active[0].active_card().attacks) and battle.current_turn.attacks_used < battle.rules.ATTACKS_PER_TURN:
                 return deck.active[0].energies.at_least_as_big(deck.active[0].active_card().attacks[attack_index].energy_cost)
         return False
 
@@ -1029,15 +1158,24 @@ def standard_effects() -> set[Effect]:
         SwitchMoveEffect(),
         EndTurnEffect(),
         SwapActiveEffect(),
+        HealEffect(),
     ])
 
-def battle_factory(deck1:Deck, deck2:Deck, rules:Rules|None=None, actions:set[Action]|None=None, effects:set[Effect]|None=None):
+def standard_damage_effects() -> set[DamageEffect]:
+    return set[DamageEffect]([
+        BaseDamageEffect(),
+        EnergyBoostDamageEffect(),
+    ])
+
+def battle_factory(deck1:Deck, deck2:Deck, rules:Rules|None=None, actions:set[Action]|None=None, effects:set[Effect]|None=None, damage_effects:set[DamageEffect]|None=None):
     if actions is None:
         actions = standard_actions()
     if effects is None:
         effects = standard_effects()
+    if damage_effects is None:
+        damage_effects = standard_damage_effects()
     if rules is None:
-        rules = Rules(actions, effects)
+        rules = Rules(actions, effects, damage_effects)
     state = BattleState(deck1, deck2, rules)
     return Battle(state)
     
