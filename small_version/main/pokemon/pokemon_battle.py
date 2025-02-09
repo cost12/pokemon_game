@@ -897,9 +897,9 @@ class AttackAction(Action):
                     battle.team1_points += 1 if attacked.level <= 100 else 2
                 else:
                     battle.team2_points += 1 if attacked.level <= 100 else 2
-                battle.next_move_team1 = not battle.next_move_team1
+                battle.push_action(('switch_move', tuple()), ActionPriority.REPLACE_ACTIVE.value)
                 battle.push_action(('select_active', tuple()), ActionPriority.REPLACE_ACTIVE.value)
-                battle.push_action(('switch_move', tuple()), ActionPriority.AFTER_REPLACE.value)
+                battle.push_action(('switch_move', tuple()), ActionPriority.REPLACE_ACTIVE.value)
             if battle.current_turn.attacks_used >= battle.rules.ATTACKS_PER_TURN:
                 battle.push_action(('end_turn_effect', tuple()), ActionPriority.END_TURN.value)
             return True
@@ -965,9 +965,9 @@ class RetreatAction(Action):
                 return False, None
             energies = EnergyContainer()
             for token in inputs[1:]:
-                if token.upper() in EnergyType:
+                try:
                     energies = energies.add_energy(EnergyType[token.upper()])
-                else:
+                except KeyError:
                     return False, None
             return True, (active_index, energies)
         return False, None
