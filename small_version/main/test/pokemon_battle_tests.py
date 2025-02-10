@@ -406,4 +406,24 @@ def test_battle_trainers():
     assert same_cards(deck_cards, battle.state.deck1)
     assert same_cards(deck_cards, battle.state.deck2)
 
+def test_energy_boost_damage_effect():
+    cards = get_cards()
+    deck_cards = [
+        cards['Squirtle'],
+        cards['Wartortle'],
+        cards['Blastoise'],
+        cards['Blastoise ex'],
+        cards['Squirtle'],
+        cards['Wartortle'],
+        cards['Blastoise'],
+        cards['Blastoise ex'],
+    ]
+    battle = deterministic_battle_setup(deck_cards)
+    battle.action('setup', (True,0))
+    battle.action('setup', (False,0))
+    battle.state.current_deck().active[0] =   ActivePokemon([cards['Blastoise ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.WATER:5})))
+    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex']])
+    battle.action('attack', (1,))
+    assert battle.state.current_deck().active[0].damage == 160
+
 # END OF FULL BATTLE TESTING
