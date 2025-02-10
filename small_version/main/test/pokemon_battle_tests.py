@@ -20,10 +20,10 @@ def get_cards() -> dict[str, PlayingCard]:
     return cards
 
 def get_bulbasaur(cards:dict[str, PokemonCard]):
-    return ActivePokemon([cards['Bulbasaur']])
+    return ActivePokemon([cards['Bulbasaur 0']])
 
 def get_ivysaur(cards:dict[str, PokemonCard]):
-    return ActivePokemon([cards['Ivysaur'], cards['Bulbasaur']])
+    return ActivePokemon([cards['Ivysaur 0'], cards['Bulbasaur 0']])
 
 def test_default():
     cards  = get_cards()
@@ -38,12 +38,12 @@ def test_evolve():
     active = get_bulbasaur(cards)
 
     active.turns_in_active = 1
-    active.evolve(cards['Ivysaur'])
-    assert active.active_card() == cards['Ivysaur']
+    active.evolve(cards['Ivysaur 0'])
+    assert active.active_card() == cards['Ivysaur 0']
     assert active.turns_in_active == 0
 
-    active.evolve(cards['Venusaur ex'])
-    assert active.active_card() == cards['Venusaur ex']
+    active.evolve(cards['Venusaur ex 0'])
+    assert active.active_card() == cards['Venusaur ex 0']
 
 def test_hp():
     cards  = get_cards()
@@ -133,18 +133,18 @@ def test_knocked_out():
 def get_deck():
     cards = get_cards()
     deck_cards = [
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Charmander'],
-        cards['Charmeleon'],
-        cards['Charizard'],
-        cards['Charmander'],
-        cards['Charmeleon'],
-        cards['Charizard']
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Charmander 0'],
+        cards['Charmeleon 0'],
+        cards['Charizard 0'],
+        cards['Charmander 0'],
+        cards['Charmeleon 0'],
+        cards['Charizard 0']
     ]
     return Deck("name", deck_cards, (EnergyType.GRASS,EnergyType.FIRE))
 
@@ -244,18 +244,18 @@ def deterministic_battle_setup(deck_cards:list[PokemonCard]) -> Battle:
 def test_battle():
     cards = get_cards()
     deck_cards = [
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex'],
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex'],
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex']
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0']
     ]
     battle = deterministic_battle_setup(deck_cards)
     assert battle.state.rules.MAX_HAND_SIZE == 10
@@ -336,25 +336,25 @@ def check_actions(actions:dict[str,Action], should_have:list[str]):
 def test_battle_trainers():
     cards = get_cards()
     deck_cards = [
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
         cards['Sabrina'],
-        cards['Bulbasaur'],
-        cards['Venusaur'],
+        cards['Bulbasaur 0'],
+        cards['Venusaur 0'],
 
         cards['Pokeball'],
-        cards['Venusaur ex'],
+        cards['Venusaur ex 0'],
         cards["Professor's Research"],
         cards["Professor's Research"],
         cards['Pokeball'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex'],
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
         cards['Sabrina'],
-        cards['Venusaur'],
-        cards['Venusaur ex']
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0']
     ]
     battle = deterministic_battle_setup(deck_cards)
     assert battle.state.rules.MAX_HAND_SIZE == 10
@@ -409,21 +409,21 @@ def test_battle_trainers():
 def test_energy_boost_damage_effect():
     cards = get_cards()
     deck_cards = [
-        cards['Squirtle'],
-        cards['Wartortle'],
-        cards['Blastoise'],
-        cards['Blastoise ex'],
-        cards['Squirtle'],
-        cards['Wartortle'],
-        cards['Blastoise'],
-        cards['Blastoise ex'],
+        cards['Squirtle 0'],
+        cards['Wartortle 0'],
+        cards['Blastoise 0'],
+        cards['Blastoise ex 0'],
+        cards['Squirtle 0'],
+        cards['Wartortle 0'],
+        cards['Blastoise 0'],
+        cards['Blastoise ex 0'],
     ]
     # fully charged
     battle = deterministic_battle_setup(deck_cards)
     battle.action('setup', (True,0))
     battle.action('setup', (False,0))
-    battle.state.current_deck().active[0] =   ActivePokemon([cards['Blastoise ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.WATER:5})))
-    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex']])
+    battle.state.current_deck().active[0] =   ActivePokemon([cards['Blastoise ex 0']], 0, 0, None, EnergyContainer(frozendict({EnergyType.WATER:5})))
+    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex 0']])
     battle.action('attack', (1,))
     assert battle.state.current_deck().active[0].damage == 160
     assert battle.state.current_deck().active[0].hp() == 30
@@ -433,8 +433,8 @@ def test_energy_boost_damage_effect():
     battle = deterministic_battle_setup(deck_cards)
     battle.action('setup', (True,0))
     battle.action('setup', (False,0))
-    battle.state.current_deck().active[0] =   ActivePokemon([cards['Blastoise ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.WATER:3})))
-    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex']])
+    battle.state.current_deck().active[0] =   ActivePokemon([cards['Blastoise ex 0']], 0, 0, None, EnergyContainer(frozendict({EnergyType.WATER:3})))
+    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex 0']])
     battle.action('attack', (1,))
     assert battle.state.current_deck().active[0].damage == 100
     assert battle.state.current_deck().active[0].hp() == 90
@@ -444,24 +444,24 @@ def test_energy_boost_damage_effect():
 def test_venusaur_heal():
     cards = get_cards()
     deck_cards = [
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex'],
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex'],
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex']
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0']
     ]
     battle = deterministic_battle_setup(deck_cards)
     battle.action('setup', (True,0))
     battle.action('setup', (False,0))
-    battle.state.current_deck().active[0] =   ActivePokemon([cards['Venusaur ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.GRASS:4})))
-    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.GRASS:4})))
+    battle.state.current_deck().active[0] =   ActivePokemon([cards['Venusaur ex 0']], 0, 0, None, EnergyContainer(frozendict({EnergyType.GRASS:4})))
+    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex 0']], 0, 0, None, EnergyContainer(frozendict({EnergyType.GRASS:4})))
     # don't increase max hp
     battle.action('attack', (1,))
     assert not battle.team1_turn()
@@ -475,7 +475,7 @@ def test_venusaur_heal():
     # don't error when scoring and heal partial damage
     battle.state.current_deck().active[0].damage -= 80 # to test healing 20
     battle.state.defending_deck().active[0].damage += 30
-    battle.state.defending_deck().active.append(ActivePokemon([cards['Ivysaur']]))
+    battle.state.defending_deck().active.append(ActivePokemon([cards['Ivysaur 0']]))
     battle.action('attack', (1,))
     assert not battle.team1_move()
     assert battle.team1_turn()
@@ -485,25 +485,25 @@ def test_venusaur_heal():
 def test_charizard_discard():
     cards = get_cards()
     deck_cards = [
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex'],
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex'],
-        cards['Bulbasaur'],
-        cards['Ivysaur'],
-        cards['Venusaur'],
-        cards['Venusaur ex']
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0']
     ]
     battle = deterministic_battle_setup(deck_cards)
     battle.action('setup', (True,0))
     battle.action('setup', (False,0))
-    battle.state.current_deck().active[0] =   ActivePokemon([cards['Charizard ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.FIRE:4})))
-    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex']])
-    battle.state.defending_deck().active.append(ActivePokemon([cards['Venusaur ex']]))
+    battle.state.current_deck().active[0] =   ActivePokemon([cards['Charizard ex 0']], 0, 0, None, EnergyContainer(frozendict({EnergyType.FIRE:4})))
+    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex 0']])
+    battle.state.defending_deck().active.append(ActivePokemon([cards['Venusaur ex 0']]))
     battle.action('attack', (1,))
     assert not battle.team1_move()
     assert battle.team1_turn()

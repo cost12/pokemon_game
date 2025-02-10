@@ -60,31 +60,31 @@ def generate_pokemon() -> dict[str,Pokemon]:
     return pokemon
 
 def generate_pokemon_cards(pokemon:dict[str,Pokemon], attacks:dict[str,Attack]) -> dict[str,PokemonCard]:
-    bulbasaur    = PokemonCard(pokemon['Bulbasaur'],  70, PokemonType.GRASS, (attacks['bulbasaur_1'],),1)
-    ivysaur      = PokemonCard(pokemon['Ivysaur'],    90, PokemonType.GRASS, (attacks['ivysaur_1'],),  2)
-    venusaur     = PokemonCard(pokemon['Venusaur'],  160, PokemonType.GRASS, (attacks['venusaur_1'],), 3)
-    venusaur_ex  = PokemonCard(pokemon['Venusaur'],  190, PokemonType.GRASS, (attacks['ivysaur_1'], attacks['venusaur_2']), 3, level=102)
-    charmander   = PokemonCard(pokemon['Charmander'], 60, PokemonType.FIRE,  (attacks['charmander_1'],), 1)
-    charmeleon   = PokemonCard(pokemon['Charmeleon'], 90, PokemonType.FIRE,  (attacks['charmeleon_1'],), 2)
-    charizard    = PokemonCard(pokemon['Charizard'], 150, PokemonType.FIRE,  (attacks['charizard_2'],),  2)
-    charizard_ex = PokemonCard(pokemon['Charizard'], 180, PokemonType.FIRE,  (attacks['charizard_1'], attacks['charizard_3']), 2, level=102)
-    squirtle     = PokemonCard(pokemon['Squirtle'],   60, PokemonType.WATER, (attacks['squirtle_1'],),  1)
-    wartortle    = PokemonCard(pokemon['Wartortle'],  80, PokemonType.WATER, (attacks['wartortle_1'],), 1)
-    blastoise    = PokemonCard(pokemon['Blastoise'], 150, PokemonType.WATER, (attacks['blastoise_2'],), 3)
-    blastoise_ex = PokemonCard(pokemon['Blastoise'], 180, PokemonType.WATER, (attacks['blastoise_1'], attacks['blastoise_3']), 3, level=102)
+    bulbasaur    = PokemonCard(pokemon['Bulbasaur'],  0,  70, PokemonType.GRASS, (attacks['bulbasaur_1'],),1)
+    ivysaur      = PokemonCard(pokemon['Ivysaur'],    0,  90, PokemonType.GRASS, (attacks['ivysaur_1'],),  2)
+    venusaur     = PokemonCard(pokemon['Venusaur'],   0, 160, PokemonType.GRASS, (attacks['venusaur_1'],), 3)
+    venusaur_ex  = PokemonCard(pokemon['Venusaur'],   0, 190, PokemonType.GRASS, (attacks['ivysaur_1'], attacks['venusaur_2']), 3, level=102)
+    charmander   = PokemonCard(pokemon['Charmander'], 0,  60, PokemonType.FIRE,  (attacks['charmander_1'],), 1)
+    charmeleon   = PokemonCard(pokemon['Charmeleon'], 0,  90, PokemonType.FIRE,  (attacks['charmeleon_1'],), 2)
+    charizard    = PokemonCard(pokemon['Charizard'],  0, 150, PokemonType.FIRE,  (attacks['charizard_2'],),  2)
+    charizard_ex = PokemonCard(pokemon['Charizard'],  0, 180, PokemonType.FIRE,  (attacks['charizard_1'], attacks['charizard_3']), 2, level=102)
+    squirtle     = PokemonCard(pokemon['Squirtle'],   0,  60, PokemonType.WATER, (attacks['squirtle_1'],),  1)
+    wartortle    = PokemonCard(pokemon['Wartortle'],  0,  80, PokemonType.WATER, (attacks['wartortle_1'],), 1)
+    blastoise    = PokemonCard(pokemon['Blastoise'],  0, 150, PokemonType.WATER, (attacks['blastoise_2'],), 3)
+    blastoise_ex = PokemonCard(pokemon['Blastoise'],  0, 180, PokemonType.WATER, (attacks['blastoise_1'], attacks['blastoise_3']), 3, level=102)
     pokemon = {
-        bulbasaur.get_name():    bulbasaur,
-        ivysaur.get_name():      ivysaur,
-        venusaur.get_name():     venusaur,
-        venusaur_ex.get_name():  venusaur_ex,
-        charmander.get_name():   charmander,
-        charmeleon.get_name():   charmeleon,
-        charizard.get_name():    charizard,
-        charizard_ex.get_name(): charizard_ex,
-        squirtle.get_name():     squirtle,
-        wartortle.get_name():    wartortle,
-        blastoise.get_name():    blastoise,
-        blastoise_ex.get_name(): blastoise_ex
+        bulbasaur.id_str():    bulbasaur,
+        ivysaur.id_str():      ivysaur,
+        venusaur.id_str():     venusaur,
+        venusaur_ex.id_str():  venusaur_ex,
+        charmander.id_str():   charmander,
+        charmeleon.id_str():   charmeleon,
+        charizard.id_str():    charizard,
+        charizard_ex.id_str(): charizard_ex,
+        squirtle.id_str():     squirtle,
+        wartortle.id_str():    wartortle,
+        blastoise.id_str():    blastoise,
+        blastoise_ex.id_str(): blastoise_ex
     }
     return pokemon
 

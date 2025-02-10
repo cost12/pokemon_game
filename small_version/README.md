@@ -15,6 +15,8 @@ Stuff to do:
     3. deck building
     4. card collecting
     5. battle building
+    6. energy cards
+    7. alternative evolution/rule options
 
 Test next:
     1.

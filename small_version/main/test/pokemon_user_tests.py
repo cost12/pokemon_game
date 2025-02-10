@@ -11,7 +11,7 @@ def three_cards() -> tuple[User,dict[str, PokemonCard]]:
     pokemon = generate_pokemon()
     cards = generate_pokemon_cards(pokemon, attacks)
 
-    initial_cards = {cards['Bulbasaur']: 2, cards['Charmander']: 1}
+    initial_cards = {cards['Bulbasaur 0']: 2, cards['Charmander 0']: 1}
     user = User("name", initial_cards)
     return user, cards
 
@@ -21,26 +21,26 @@ def twenty_cards() -> tuple[User, dict[str, PokemonCard], list[PokemonCard]]:
     cards = generate_pokemon_cards(pokemon, attacks)
 
     initial_cards = [
-        cards['Bulbasaur'], 
-        cards['Bulbasaur'], 
-        cards['Ivysaur'], 
-        cards['Ivysaur'], 
-        cards['Venusaur'], 
-        cards['Venusaur'], 
-        cards['Venusaur ex'], 
-        cards['Venusaur ex'], 
-        cards['Charmander'],
-        cards['Charmander'],
-        cards['Charmeleon'],
-        cards['Charmeleon'],
-        cards['Charizard'],
-        cards['Charizard'],
-        cards['Charizard ex'],
-        cards['Charizard ex'],
-        cards['Squirtle'],
-        cards['Squirtle'],
-        cards['Wartortle'],
-        cards['Wartortle']
+        cards['Bulbasaur 0'], 
+        cards['Bulbasaur 0'], 
+        cards['Ivysaur 0'], 
+        cards['Ivysaur 0'], 
+        cards['Venusaur 0'], 
+        cards['Venusaur 0'], 
+        cards['Venusaur ex 0'], 
+        cards['Venusaur ex 0'], 
+        cards['Charmander 0'],
+        cards['Charmander 0'],
+        cards['Charmeleon 0'],
+        cards['Charmeleon 0'],
+        cards['Charizard 0'],
+        cards['Charizard 0'],
+        cards['Charizard ex 0'],
+        cards['Charizard ex 0'],
+        cards['Squirtle 0'],
+        cards['Squirtle 0'],
+        cards['Wartortle 0'],
+        cards['Wartortle 0']
     ]
     user = User("name", tuple_to_counts(initial_cards))
     return user, cards, initial_cards
@@ -59,32 +59,32 @@ def test_initial_cards():
     user, cards = three_cards()
     assert len(user.cards) == 2
     assert user.number_of_cards() == 3
-    assert user.number_of_copies(cards['Bulbasaur']) == 2
-    assert user.number_of_copies(cards['Blastoise']) == 0
+    assert user.number_of_copies(cards['Bulbasaur 0']) == 2
+    assert user.number_of_copies(cards['Blastoise 0']) == 0
 
 def test_add_card():
     user, cards = three_cards()
 
-    user.add_card(cards['Bulbasaur'])
-    assert user.number_of_copies(cards['Bulbasaur']) == 3
+    user.add_card(cards['Bulbasaur 0'])
+    assert user.number_of_copies(cards['Bulbasaur 0']) == 3
     assert user.number_of_cards() == 4
 
-    user.add_card(cards['Ivysaur'])
-    assert user.number_of_copies(cards['Ivysaur']) == 1
+    user.add_card(cards['Ivysaur 0'])
+    assert user.number_of_copies(cards['Ivysaur 0']) == 1
     assert user.number_of_cards() == 5
 
 def test_add_cards():
     user, cards = three_cards()
     
-    add = [cards['Bulbasaur'], cards['Ivysaur'], cards['Ivysaur']]
+    add = [cards['Bulbasaur 0'], cards['Ivysaur 0'], cards['Ivysaur 0']]
     user.add_cards(add)
     assert user.number_of_cards() == 6
-    assert user.number_of_copies(cards['Bulbasaur']) == 3
-    assert user.number_of_copies(cards['Ivysaur']) == 2
+    assert user.number_of_copies(cards['Bulbasaur 0']) == 3
+    assert user.number_of_copies(cards['Ivysaur 0']) == 2
     
-    add = [cards['Bulbasaur']]
+    add = [cards['Bulbasaur 0']]
     user.add_cards(add)
-    assert user.number_of_copies(cards['Bulbasaur']) == 4
+    assert user.number_of_copies(cards['Bulbasaur 0']) == 4
     assert user.number_of_cards() == 7
 
     add = []
@@ -105,7 +105,7 @@ def test_add_deck():
     assert user.add_deck(deck)
     assert user.number_of_decks() == 2
 
-    initial.append(cards['Blastoise'])
+    initial.append(cards['Blastoise 0'])
     deck = Deck("name3", tuple(initial), (EnergyType.FIRE, EnergyType.GRASS))
     assert not user.add_deck(deck)
     assert user.number_of_decks() == 2

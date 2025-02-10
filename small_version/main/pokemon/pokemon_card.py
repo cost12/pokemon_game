@@ -141,12 +141,16 @@ class PokemonCard(PlayingCard):
     """Represents a pokemon card
     """
     pokemon: Pokemon
+    version: int
     hit_points: int
     card_type: PokemonType
     attacks: tuple[Attack]
     retreat_cost: int
     level: int = 0
     ability: tuple[Ability] = field(default_factory=tuple[Ability])
+
+    def id_str(self) -> str:
+        return f"{self.get_name()} {self.version}"
 
     def get_card_type(self) -> CardType:
         return CardType.POKEMON
