@@ -418,6 +418,7 @@ def test_energy_boost_damage_effect():
         cards['Blastoise'],
         cards['Blastoise ex'],
     ]
+    # fully charged
     battle = deterministic_battle_setup(deck_cards)
     battle.action('setup', (True,0))
     battle.action('setup', (False,0))
@@ -425,5 +426,88 @@ def test_energy_boost_damage_effect():
     battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex']])
     battle.action('attack', (1,))
     assert battle.state.current_deck().active[0].damage == 160
+    assert battle.state.current_deck().active[0].hp() == 30
+    assert not battle.team1_turn()
+    assert battle.get_score() == (0,0)
+    # no bonus
+    battle = deterministic_battle_setup(deck_cards)
+    battle.action('setup', (True,0))
+    battle.action('setup', (False,0))
+    battle.state.current_deck().active[0] =   ActivePokemon([cards['Blastoise ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.WATER:3})))
+    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex']])
+    battle.action('attack', (1,))
+    assert battle.state.current_deck().active[0].damage == 100
+    assert battle.state.current_deck().active[0].hp() == 90
+    assert not battle.team1_turn()
+    assert battle.get_score() == (0,0)
+
+def test_venusaur_heal():
+    cards = get_cards()
+    deck_cards = [
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex'],
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex'],
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex']
+    ]
+    battle = deterministic_battle_setup(deck_cards)
+    battle.action('setup', (True,0))
+    battle.action('setup', (False,0))
+    battle.state.current_deck().active[0] =   ActivePokemon([cards['Venusaur ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.GRASS:4})))
+    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.GRASS:4})))
+    # don't increase max hp
+    battle.action('attack', (1,))
+    assert not battle.team1_turn()
+    assert battle.state.defending_deck().active[0].hp() == 190
+    assert battle.state.current_deck().active[0].hp() == 90
+    # heal when damaged
+    battle.action('attack', (1,))
+    assert battle.team1_turn()
+    assert battle.state.defending_deck().active[0].hp() == 120
+    assert battle.state.current_deck().active[0].hp() == 90
+    # don't error when scoring and heal partial damage
+    battle.state.current_deck().active[0].damage -= 80 # to test healing 20
+    battle.state.defending_deck().active[0].damage += 30
+    battle.state.defending_deck().active.append(ActivePokemon([cards['Ivysaur']]))
+    battle.action('attack', (1,))
+    assert not battle.team1_move()
+    assert battle.team1_turn()
+    assert battle.get_score() == (2,0)
+    assert battle.state.defending_deck().active[0].hp() == 190
+
+def test_charizard_discard():
+    cards = get_cards()
+    deck_cards = [
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex'],
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex'],
+        cards['Bulbasaur'],
+        cards['Ivysaur'],
+        cards['Venusaur'],
+        cards['Venusaur ex']
+    ]
+    battle = deterministic_battle_setup(deck_cards)
+    battle.action('setup', (True,0))
+    battle.action('setup', (False,0))
+    battle.state.current_deck().active[0] =   ActivePokemon([cards['Charizard ex']], 0, 0, None, EnergyContainer(frozendict({EnergyType.FIRE:4})))
+    battle.state.defending_deck().active[0] = ActivePokemon([cards['Venusaur ex']])
+    battle.state.defending_deck().active.append(ActivePokemon([cards['Venusaur ex']]))
+    battle.action('attack', (1,))
+    assert not battle.team1_move()
+    assert battle.team1_turn()
+    assert battle.get_score() == (2,0)
+    assert battle.state.defending_deck().active[0].energies.size_of(EnergyType.FIRE) == 2 
 
 # END OF FULL BATTLE TESTING

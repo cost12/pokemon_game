@@ -343,17 +343,24 @@ class BattleState:
         return self.current_action[0]
     
     def push_action(self, action:tuple[str,tuple], priority:int) -> None:
-        self.action_queue.push(priority, action)
+        if self.battle_going():
+            self.action_queue.push(priority, action)
 
     def pop_action(self) -> tuple[str,tuple]:
-        self.current_action = self.action_queue.pop()
-        return self.current_action
+        if self.battle_going():
+            self.current_action = self.action_queue.pop()
+            return self.current_action
     
     def end_current_action(self) -> None:
         self.current_action = None
     
     def queued_actions(self) -> int:
         return self.action_queue.size() + (0 if self.current_action is None else 1)
+    
+    def end(self) -> None:
+        if self.is_over():
+            self.current_action = None
+            self.action_queue.clear()
 
     def team1_move(self) -> bool:
         return self.next_move_team1
@@ -590,17 +597,18 @@ class DiscardEnergyEffect(Effect):
 
     def is_valid(self, battle:BattleState, inputs:tuple[bool,str|int,int,int]) -> bool:
         if battle.ready_for_action(self.effect_name()):
-            if len(inputs) == 4 and how_many > 0:
+            if len(inputs) == 4:
                 which_deck, who, how_many, what_type = inputs
-                deck = battle.current_deck() if which_deck else battle.defending_deck()
-                if who == 'random':
-                    return True
-                else:
-                    try:
-                        who = int(who)
-                    except ValueError:
-                        return False
-                    return battle.is_valid_active_index(who, deck)
+                if how_many > 0:
+                    deck = battle.current_deck() if which_deck else battle.defending_deck()
+                    if who == 'random':
+                        return True
+                    else:
+                        try:
+                            who = int(who)
+                        except ValueError:
+                            return False
+                        return battle.is_valid_active_index(who, deck)
         return False
 
     def effect(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
@@ -611,9 +619,10 @@ class DiscardEnergyEffect(Effect):
                 print("do this")
             else:
                 who = int(who)
-                deck.active[who].discard_energy(what_type)
+                deck.active[who].discard_energy(what_type, how_many)
             return True
         return False
+
 
 class DamageEffect:
     def effect_name(self) -> str:
@@ -893,13 +902,17 @@ class AttackAction(Action):
                 battle.push_action(attack.get_effect(), ActionPriority.ATTACK_EFFECT.value)
             battle.current_turn.attacks_used += 1
             if defending_deck.active[0] is None:
+                print("switch")
                 if battle.team1_turn():
                     battle.team1_points += 1 if attacked.level <= 100 else 2
                 else:
                     battle.team2_points += 1 if attacked.level <= 100 else 2
-                battle.push_action(('switch_move', tuple()), ActionPriority.REPLACE_ACTIVE.value)
-                battle.push_action(('select_active', tuple()), ActionPriority.REPLACE_ACTIVE.value)
-                battle.push_action(('switch_move', tuple()), ActionPriority.REPLACE_ACTIVE.value)
+                if not battle.is_over():
+                    battle.push_action(('switch_move', tuple()), ActionPriority.REPLACE_ACTIVE.value)
+                    battle.push_action(('select_active', tuple()), ActionPriority.REPLACE_ACTIVE.value)
+                    battle.push_action(('switch_move', tuple()), ActionPriority.REPLACE_ACTIVE.value)
+                else:
+                    battle.end()
             if battle.current_turn.attacks_used >= battle.rules.ATTACKS_PER_TURN:
                 battle.push_action(('end_turn_effect', tuple()), ActionPriority.END_TURN.value)
             return True
@@ -1159,6 +1172,7 @@ def standard_effects() -> set[Effect]:
         EndTurnEffect(),
         SwapActiveEffect(),
         HealEffect(),
+        DiscardEnergyEffect(),
     ])
 
 def standard_damage_effects() -> set[DamageEffect]:

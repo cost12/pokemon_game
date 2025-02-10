@@ -15,3 +15,6 @@ Stuff to do:
     3. deck building
     4. card collecting
     5. battle building
+
+Test next:
+    1.

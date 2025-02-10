@@ -90,3 +90,6 @@ class PriorityQueue[T]:
     
     def size(self) -> int:
         return len(self.items)
+    
+    def clear(self) -> None:
+        self.items.clear()
