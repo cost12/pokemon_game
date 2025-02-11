@@ -537,6 +537,7 @@ def test_butterfree_heal():
     battle.state.current_deck().active.append(ActivePokemon([cards['Butterfree 0']], damage=50))
     battle.state.current_deck().active.append(ActivePokemon([cards['Butterfree 0']]))
     
+    # use ability once from anywhere on bench
     assert battle.action('ability', (3,0))
     assert battle.state.current_deck().active[0].hp() == 120
     assert battle.state.current_deck().active[1].hp() == 120
@@ -558,6 +559,63 @@ def test_butterfree_heal():
     assert battle.state.current_deck().active[3].hp() == 120
     assert not battle.action('ability', (1,0))
 
+    # can't use if conditions aren't met
     assert not battle.action('ability', (0,0))
+
+    # test ability reset on next turn
+    battle.action('end_turn', tuple())
+    battle.action('end_turn', tuple())
+
+    battle.state.current_deck().active[0].damage = 50
+    assert battle.action('ability', (0,0))
+    assert not battle.action('ability', (0,0))
+    assert battle.action('ability', (1,0))
+    assert not battle.action('ability', (1,0))
     
+def test_caterpie_find():
+    cards = get_cards()
+    deck_cards = [
+        cards['Squirtle 0'],
+        cards['Wartortle 0'],
+        cards['Blastoise 0'],
+        cards['Blastoise ex 0'],
+        cards['Squirtle 0'],
+        cards['Wartortle 0'],
+        cards['Blastoise 0'],
+        cards['Bulbasaur 0'],
+        cards['Blastoise ex 0'],
+    ]
+    battle = deterministic_battle_setup(deck_cards)
+    battle.action('setup', (True,0))
+    battle.action('setup', (False,0))
+    battle.state.current_deck().active[0] = ActivePokemon([cards['Caterpie 0']], 0, 0, None, EnergyContainer(frozendict({EnergyType.GRASS:1})))
+    assert battle.action('attack', (0,))
+    assert not battle.team1_turn()
+    assert battle.state.defending_deck().hand[-1] == cards['Bulbasaur 0']
+
+    # test with no target
+    assert battle.action('end_turn', tuple())
+    assert battle.action('attack', (0,))
+    assert len(battle.state.defending_deck().hand) == 7
+
+    # find non-basic
+    cards = get_cards()
+    deck_cards = [
+        cards['Squirtle 0'],
+        cards['Wartortle 0'],
+        cards['Blastoise 0'],
+        cards['Blastoise ex 0'],
+        cards['Squirtle 0'],
+        cards['Wartortle 0'],
+        cards['Blastoise 0'],
+        cards['Ivysaur 0'],
+        cards['Blastoise ex 0'],
+    ]
+    battle = deterministic_battle_setup(deck_cards)
+    battle.action('setup', (True,0))
+    battle.action('setup', (False,0))
+    battle.state.current_deck().active[0] = ActivePokemon([cards['Caterpie 0']], 0, 0, None, EnergyContainer(frozendict({EnergyType.GRASS:1})))
+    battle.action('attack', (0,))
+    assert battle.state.defending_deck().hand[-1] == cards['Ivysaur 0']
+
 # END OF FULL BATTLE TESTING

@@ -148,7 +148,7 @@ class PokemonCard(PlayingCard):
     pokemon: Pokemon
     version: int
     hit_points: int
-    card_type: PokemonType
+    pokemon_type: PokemonType
     attacks: tuple[Attack]
     retreat_cost: int
     level: int = 0
@@ -190,10 +190,10 @@ class PokemonCard(PlayingCard):
             return 'ex'
 
     def get_weakness(self) -> EnergyType:
-        return weakness(self.card_type)
+        return weakness(self.pokemon_type)
     
     def get_resistance(self) -> EnergyType:
-        return resistance(self.card_type)
+        return resistance(self.pokemon_type)
     
     def get_energy_type(self) -> EnergyType:
-        return energy_type(self.card_type)
+        return energy_type(self.pokemon_type)

@@ -1,4 +1,4 @@
-from pokemon.pokemon_card import PokemonCard, PlayingCard, CardType, Attack
+from pokemon.pokemon_card import PokemonCard, PlayingCard, CardType, Attack, PokemonType
 from pokemon.pokemon_types import EnergyType, Condition, EnergyContainer
 import pokemon.utils as utils
 
@@ -141,6 +141,23 @@ class DeckSetup:
             basic = random.choice(basics)
             self.deck.remove(basic)
             self.hand.append(basic)
+        deck = list(self.deck)
+        random.shuffle(deck)
+        self.deck = deque(deck)
+
+    def get_cards(self, how_many:int, card_type:CardType, energy_type:EnergyType, is_basic:bool) -> None:
+        matches = [card for card in self.deck if (card.get_card_type()==card_type and (not card_type==CardType.POKEMON or energy_type is None or card.get_energy_type()==energy_type) and (not is_basic or card.is_basic()))]
+        how_many = min(how_many, len(matches))
+        if how_many > 0:
+            random.shuffle(matches)
+            to_hand = matches[:how_many]
+            deck = list(self.deck)
+            for card in to_hand:
+                deck.remove(card)
+            self.hand.extend(to_hand)
+            random.shuffle(deck)
+            self.deck = deque(deck)
+        else:
             deck = list(self.deck)
             random.shuffle(deck)
             self.deck = deque(deck)
@@ -484,34 +501,6 @@ class DrawCardsEffect(Effect):
             return True
         return False
 
-class DrawBasicEffect(Effect):
-    def effect_name(self) -> str:
-        return "draw_basic"
-
-    def effect_description(self) -> str:
-        return "Draw random basic cards from the deck into the hand"
-
-    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if battle.ready_for_action(self.effect_name()):
-            if len(inputs) == 1:
-                try:
-                    n = int(inputs[0])
-                except ValueError:
-                    return False
-                return True
-        return False
-
-    def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if self.is_valid(battle, inputs):
-            n = inputs[0]
-            deck = battle.current_deck()
-            i = 0
-            while i < n and len(deck.hand) < battle.rules.MAX_HAND_SIZE:
-                deck.draw_basic()
-                i += 1
-            return True
-        return False
-
 class SwitchMoveEffect(Effect):
     def effect_name(self) -> str:
         return "switch_move"
@@ -639,6 +628,32 @@ class DiscardEnergyEffect(Effect):
             else:
                 who = int(who)
                 deck.active[who].discard_energy(what_type, how_many)
+            return True
+        return False
+
+class GetCardEffect(Effect):
+    def effect_name(self) -> str:
+        return "get_card"
+
+    def effect_description(self) -> str:
+        return "Find a card or cards in the deck and place them in the hand."
+
+    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
+        if battle.ready_for_action(self.effect_name()):
+            if len(inputs) == 4:
+                how_many, card_type, energy_type, is_basic = inputs
+                deck = battle.current_deck()
+                how_many = min(how_many, battle.rules.MAX_HAND_SIZE-len(deck.hand), len(deck.deck))
+                if how_many > 0:
+                    return True
+        return False
+
+    def effect(self, battle:BattleState, inputs:tuple) -> bool:
+        if self.is_valid(battle, inputs):
+            how_many, card_type, energy_type, is_basic = inputs
+            deck = battle.current_deck()
+            how_many = min(how_many, battle.rules.MAX_HAND_SIZE-len(deck.hand), len(deck.deck))
+            deck.get_cards(how_many, card_type, energy_type, is_basic)
             return True
         return False
 
@@ -1245,7 +1260,7 @@ def standard_actions() -> set[Action]:
 def standard_effects() -> set[Effect]:
     return set[Effect]([
         DrawCardsEffect(),
-        DrawBasicEffect(),
+        GetCardEffect(),
         SwitchMoveEffect(),
         EndTurnEffect(),
         SwapActiveEffect(),

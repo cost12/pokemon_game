@@ -24,7 +24,7 @@ def generate_attacks() -> dict[str,Attack]:
     surf          = Attack('blastoise_0', 'Surf',          ('base', (40,)),  EnergyContainer(frozendict({EnergyType.WATER:1,EnergyType.COLORLESS:1})), PokemonType.WATER)
     hydro_pump    = Attack('blastoise_1', 'Hydro Pump',    ('energy_boost',  (80,  60, 2, EnergyType.WATER)),  EnergyContainer(frozendict({EnergyType.WATER:2,EnergyType.COLORLESS:1})), PokemonType.WATER, 'If this Pokemon has at least 2 extra WATER energy attached, this attack does 60 more damage.')
     hydro_bazooka = Attack('blastoise_2', 'Hydro Bazooka', ('energy_boost',  (100, 60, 2, EnergyType.WATER)), EnergyContainer(frozendict({EnergyType.WATER:2,EnergyType.COLORLESS:1})), PokemonType.WATER, 'If this Pokemon has at least 2 extra WATER energy attached, this attack does 60 more damage.')
-    find_a_friend = Attack('caterpie_0',  'Find A Friend', ('base', (0,)),   EnergyContainer(frozendict({EnergyType.COLORLESS:1})), PokemonType.BUG, 'Put 1 random GRASS pokemon from your deck into your hand.', effect=('find_friend', (1, EnergyType.GRASS)))
+    find_a_friend = Attack('caterpie_0',  'Find A Friend', ('base', (0,)),   EnergyContainer(frozendict({EnergyType.COLORLESS:1})), PokemonType.BUG, 'Put 1 random GRASS pokemon from your deck into your hand.', effect=('get_card', (1, CardType.POKEMON, EnergyType.GRASS, False)))
     bug_bite      = Attack('metapod_0',   'Bug Bite',      ('base', (30,)),  EnergyContainer(frozendict({EnergyType.COLORLESS:2})), PokemonType.BUG)
     gust          = Attack('butterfree_0','Gust',          ('base', (60,)),  EnergyContainer(frozendict({EnergyType.GRASS:1,EnergyType.COLORLESS:2})), PokemonType.BUG)
     attacks = {
@@ -113,9 +113,9 @@ def generate_pokemon_cards(pokemon:dict[str,Pokemon], attacks:dict[str,Attack], 
     return pokemon
 
 def generate_trainers() -> dict[str,Trainer]:
-    oak      = Trainer("Professor's Research", "Draw 2 cards",                                                        "draw",        (2,),    CardType.SUPPORTER)
-    sabrina  = Trainer("Sabrina",              "Your opponent swaps their active pokemon with a card on their bench", "swap_active", tuple(), CardType.SUPPORTER)
-    pokeball = Trainer("Pokeball",             "Put a random Basic Pokemon from your bench into your hand",           "draw_basic",  (1,),    CardType.ITEM)
+    oak      = Trainer("Professor's Research", "Draw 2 cards.",                                                        "draw",        (2,),                           CardType.SUPPORTER)
+    sabrina  = Trainer("Sabrina",              "Your opponent swaps their active pokemon with a card on their bench.", "swap_active", tuple(),                        CardType.SUPPORTER)
+    pokeball = Trainer("Pokeball",             "Put a random Basic Pokemon from your bench into your hand.",           "get_card",    (1,CardType.POKEMON,None,True), CardType.ITEM)
     return {
         oak.name: oak,
         sabrina.name: sabrina,
