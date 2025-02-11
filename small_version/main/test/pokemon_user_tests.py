@@ -1,24 +1,26 @@
 from pokemon.user import User
 from pokemon.pokemon_control import BattleController
-from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
+from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards, generate_abilities
 from pokemon.pokemon_card import PokemonCard
 from pokemon.pokemon_battle import Deck
 from pokemon.pokemon_types import EnergyType
 from pokemon.utils import tuple_to_counts
 
 def three_cards() -> tuple[User,dict[str, PokemonCard]]:
+    abilities = generate_abilities()
     attacks = generate_attacks()
     pokemon = generate_pokemon()
-    cards = generate_pokemon_cards(pokemon, attacks)
+    cards = generate_pokemon_cards(pokemon, attacks, abilities)
 
     initial_cards = {cards['Bulbasaur 0']: 2, cards['Charmander 0']: 1}
     user = User("name", initial_cards)
     return user, cards
 
 def twenty_cards() -> tuple[User, dict[str, PokemonCard], list[PokemonCard]]:
+    abilities = generate_abilities()
     attacks = generate_attacks()
     pokemon = generate_pokemon()
-    cards = generate_pokemon_cards(pokemon, attacks)
+    cards = generate_pokemon_cards(pokemon, attacks, abilities)
 
     initial_cards = [
         cards['Bulbasaur 0'], 

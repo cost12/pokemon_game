@@ -17,6 +17,8 @@ Stuff to do:
     5. battle building
     6. energy cards
     7. alternative evolution/rule options
+    8. multiplayer
+    9. visualizations
 
 Test next:
     1.

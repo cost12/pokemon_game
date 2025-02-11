@@ -16,6 +16,7 @@ class ActivePokemon:
         self.damage = damage
         self.conditions = conditions if conditions is not None else list[Condition]()
         self.energies = energies if energies is not None else EnergyContainer()
+        self.abilities_used = utils.Collection[int]()
 
     def copy(self) -> 'ActivePokemon':
         return ActivePokemon(list(self.pokemon_cards), self.turns_in_active, self.damage, list(self.conditions), self.energies)
@@ -37,6 +38,16 @@ class ActivePokemon:
 
     def end_turn(self) -> None:
         self.turns_in_active += 1
+        self.abilities_used = utils.Collection[int]()
+
+    def use_ability(self, ability_index:int) -> None:
+        self.abilities_used = self.abilities_used.add_item(ability_index)
+
+    def total_abilities_used(self) -> int:
+        return self.abilities_used.size()
+    
+    def used_ability(self, ability_index:int) -> int:
+        return self.abilities_used.size_of(ability_index)
 
     def between_turns(self) -> None:
         pass
@@ -276,6 +287,7 @@ class Rules:
     SHUFFLE           :bool = True
     SUPPORTERS_PER_TURN:int = 1
     ATTACKS_PER_TURN  :int  = 1
+    ABILITIES_PER_CARD:int  = 1
 
     def get_actions(self) -> dict[str,'Action']:
         return {action.action_name():action for action in self.actions}
@@ -563,14 +575,21 @@ class HealEffect(Effect):
     def is_valid(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
         if battle.ready_for_action(self.effect_name()):
             if len(inputs) == 2 and inputs[1] > 0:
-                if inputs[0] in {'all','bench'}:
-                    return True
+                if inputs[0] == 'all':
+                    for active in battle.current_deck().active:
+                        if active.damage > 0:
+                            return True
+                elif inputs[0] == 'bench':
+                    for active in battle.current_deck().active[1:]:
+                        if active.damage > 0:
+                            return True
                 else:
                     try:
                         active_index = int(inputs[0])
                     except ValueError:
                         return False
-                    return battle.is_valid_active_index(active_index, battle.current_deck())
+                    if battle.is_valid_active_index(active_index, battle.current_deck()):
+                        return battle.current_deck().active[active_index].damage > 0
         return False
 
     def effect(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
@@ -883,6 +902,61 @@ class EvolveAction(Action):
     def input_format(self) -> str:
         return "evolve x y"
 
+class AbilityAction(Action):
+    def action(self, battle:BattleState, inputs:tuple[int,int]) -> bool:
+        if self.is_valid(battle, inputs):
+            active_index, ability_index = inputs
+            deck = battle.current_deck()
+            ability = deck.active[active_index].active_card().abilities[ability_index]
+            effect, effect_inputs = ability.get_effect()
+            battle.rules.get_effects()[effect].effect(battle, effect_inputs)
+            deck.active[active_index].use_ability(ability_index)
+            return True
+        return False
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int,int]) -> bool:
+        if battle.ready_for_action(self.action_name()):
+            active_index, ability_index = inputs
+            deck = battle.current_deck()
+            if battle.is_valid_active_index(active_index, deck):
+                abilities = deck.active[active_index].active_card().abilities
+                if len(abilities) > 0 and ability_index >= 0 and ability_index < len(abilities):
+                    if deck.active[active_index].used_ability(ability_index) < battle.rules.ABILITIES_PER_CARD:
+                        ability = abilities[ability_index]
+                        if ability.trigger == 'user':
+                            effect, effect_inputs = ability.get_effect()
+                            if effect in battle.rules.get_effects():
+                                return battle.rules.get_effects()[effect].is_valid(battle, effect_inputs)
+        return False
+
+    def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
+        if len(inputs) == 2:
+            try:
+                active_index = int(inputs[0])
+                ability_index = int(inputs[1])
+            except ValueError:
+                return False, "ability requires two ints"
+            return True, (active_index, ability_index)
+        return False, "ability requires 2 inputs"
+
+    def could_act(self, battle:BattleState) -> bool:
+        deck = battle.current_deck()
+        for i in range(len(deck.active)):
+            if deck.active[i] is not None:
+                for j in range(len(deck.active[i].active_card().abilities)):
+                    if self.is_valid(battle, (i,j)):
+                        return True
+        return False
+
+    def action_name(self) -> str:
+        return 'ability'
+
+    def action_description(self) -> str:
+        return "Use a pokemon's ability"
+
+    def input_format(self) -> str:
+        return 'ability x y'
+
 class AttackAction(Action):
     def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
         if self.is_valid(battle, inputs):
@@ -899,7 +973,10 @@ class AttackAction(Action):
                 damage = battle.rules.get_damage_effects()['base'].damage(battle, damage_inputs)
             defending_deck.take_damage(damage, deck.active[0].active_card().get_energy_type())
             if attack.get_effect() is not None:
-                battle.push_action(attack.get_effect(), ActionPriority.ATTACK_EFFECT.value)
+                attack_effect, attack_inputs = attack.get_effect()
+                if attack_effect in battle.rules.get_effects():
+                    if battle.rules.get_effects()[attack_effect].is_valid(battle, attack_inputs):
+                        battle.push_action(attack.get_effect(), ActionPriority.ATTACK_EFFECT.value)
             battle.current_turn.attacks_used += 1
             if defending_deck.active[0] is None:
                 print("switch")
@@ -1156,6 +1233,7 @@ def standard_actions() -> set[Action]:
         SetupAction(),
         PlayBasicAction(),
         EvolveAction(),
+        AbilityAction(),
         AttackAction(),
         RetreatAction(),
         PlaceEnergyAction(),

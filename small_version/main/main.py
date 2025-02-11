@@ -1,5 +1,5 @@
 from pokemon.user import User
-from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards, generate_trainers
+from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards, generate_trainers, generate_abilities
 from pokemon.pokemon_battle import Deck, battle_factory
 from pokemon.pokemon_types import EnergyType
 from pokemon.pokemon_control import battle_control, CommandLineBattleController
@@ -7,9 +7,10 @@ import pokemon.utils as utils
 
 def main():
     # generate pokemon/cards/data
+    abilities = generate_abilities()
     attacks = generate_attacks()
     pokemon = generate_pokemon()
-    all_pokemon = generate_pokemon_cards(pokemon, attacks)
+    all_pokemon = generate_pokemon_cards(pokemon, attacks, abilities)
     all_trainers = generate_trainers()
 
     # choose the cards for the decks

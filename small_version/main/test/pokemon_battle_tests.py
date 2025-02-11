@@ -1,17 +1,18 @@
 from pokemon.pokemon_battle import ActivePokemon, DeckSetup, Deck, Action, Battle, Rules, battle_factory, standard_actions, standard_effects, standard_damage_effects
 from pokemon.pokemon_types import Condition, EnergyContainer, EnergyType
 from pokemon.pokemon_card import PokemonCard, PlayingCard, Trainer
-from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards, generate_trainers
+from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards, generate_trainers, generate_abilities
 
 from frozendict import frozendict
 import pytest
 
 # TESTING FOR ActivePokemon
 def get_cards() -> dict[str, PlayingCard]:
+    abilities = generate_abilities()
     attacks = generate_attacks()
     pokemon = generate_pokemon()
     trainers = generate_trainers()
-    pokemon_cards = generate_pokemon_cards(pokemon, attacks)
+    pokemon_cards = generate_pokemon_cards(pokemon, attacks, abilities)
     cards = dict[PlayingCard]()
     for name,trainer in trainers.items():
         cards[name] = trainer
@@ -373,7 +374,7 @@ def test_battle_trainers():
     assert battle.action('trainer', (4,))
     assert battle.action('end_turn', tuple())
     
-    # Team 2 turn 2: place energy on active Bulbasaur, Pokeball is drawn
+    # Team 2 turn 2: place energy on active Bulbasaur, Pokeball is drawn and used
     assert not battle.team1_turn()
     assert len(battle.state.deck2.hand) == 4
     assert check_actions(battle.available_actions(), ['end_turn', 'trainer', 'place_energy'])
@@ -385,7 +386,7 @@ def test_battle_trainers():
     assert battle.action('play_basic', (3,))
     assert battle.action('end_turn', tuple())
     
-    # Team 1 turn 3: draw Venusaur, place energy on active, play Sabrina
+    # Team 1 turn 3: draw random, place energy on active, play Sabrina
     assert battle.team1_turn()
     assert battle.action('place_energy', (0,))
     assert battle.action('trainer', (1,))
@@ -400,6 +401,8 @@ def test_battle_trainers():
     # Team 1 finish turn 3: end_turn
     assert battle.team1_turn()
     assert battle.team1_move()
+    if battle.state.deck1.hand[4] == cards['Pokeball']:
+        assert battle.action('trainer', (4,))
     assert check_actions(battle.available_actions(), ['evolve', 'play_basic', 'end_turn'])
     assert battle.action('end_turn', tuple())
 
@@ -510,4 +513,51 @@ def test_charizard_discard():
     assert battle.get_score() == (2,0)
     assert battle.state.defending_deck().active[0].energies.size_of(EnergyType.FIRE) == 2 
 
+def test_butterfree_heal():
+    cards = get_cards()
+    deck_cards = [
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0']
+    ]
+    battle = deterministic_battle_setup(deck_cards)
+    battle.action('setup', (True,0))
+    battle.action('setup', (False,0))
+    battle.state.current_deck().active[0] = ActivePokemon([cards['Butterfree 0']], damage=10)
+    battle.state.current_deck().active.append(ActivePokemon([cards['Butterfree 0']], damage=20))
+    battle.state.current_deck().active.append(ActivePokemon([cards['Butterfree 0']], damage=50))
+    battle.state.current_deck().active.append(ActivePokemon([cards['Butterfree 0']]))
+    
+    assert battle.action('ability', (3,0))
+    assert battle.state.current_deck().active[0].hp() == 120
+    assert battle.state.current_deck().active[1].hp() == 120
+    assert battle.state.current_deck().active[2].hp() == 90
+    assert battle.state.current_deck().active[3].hp() == 120
+    assert not battle.action('ability', (3,0))
+    
+    assert battle.action('ability', (2,0))
+    assert battle.state.current_deck().active[0].hp() == 120
+    assert battle.state.current_deck().active[1].hp() == 120
+    assert battle.state.current_deck().active[2].hp() == 110
+    assert battle.state.current_deck().active[3].hp() == 120
+    assert not battle.action('ability', (2,0))
+
+    assert battle.action('ability', (1,0))
+    assert battle.state.current_deck().active[0].hp() == 120
+    assert battle.state.current_deck().active[1].hp() == 120
+    assert battle.state.current_deck().active[2].hp() == 120
+    assert battle.state.current_deck().active[3].hp() == 120
+    assert not battle.action('ability', (1,0))
+
+    assert not battle.action('ability', (0,0))
+    
 # END OF FULL BATTLE TESTING

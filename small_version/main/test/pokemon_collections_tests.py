@@ -1,4 +1,4 @@
-from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards
+from pokemon.pokemon_collections import generate_attacks, generate_pokemon, generate_pokemon_cards, generate_abilities
 from pokemon.pokemon_types import EnergyType, PokemonType, EnergyContainer
 from pokemon.pokemon_card import Pokemon, Attack, Ability
 
@@ -11,7 +11,7 @@ def test_generate_attacks():
         assert attack.id_str == id_str
         assert isinstance(attack.attack_type, PokemonType)
         assert isinstance(attack.base_damage(), int)
-        assert attack.base_damage() > 0
+        assert attack.base_damage() >= 0
         assert isinstance(attack.text, str)
         assert isinstance(attack.energy_cost, EnergyContainer)
 
@@ -29,9 +29,10 @@ def test_generate_pokemon():
             assert isinstance(type, PokemonType)
 
 def test_generate_pokemon_cards():
+    abilities= generate_abilities()
     attacks  = generate_attacks()
     pokemon  = generate_pokemon()
-    cards    = generate_pokemon_cards(pokemon, attacks)
+    cards    = generate_pokemon_cards(pokemon, attacks, abilities)
 
     for id_str, card in cards.items():
         assert id_str == card.id_str()
@@ -46,6 +47,6 @@ def test_generate_pokemon_cards():
         assert card.retreat_cost >= 0
         assert isinstance(card.level, int)
         assert card.level >= 0 and card.level <= 102
-        assert isinstance(card.ability, tuple)
-        for ability in card.ability:
+        assert isinstance(card.abilities, tuple)
+        for ability in card.abilities:
             assert isinstance(ability, Ability)

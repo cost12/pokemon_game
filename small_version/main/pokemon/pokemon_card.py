@@ -5,9 +5,14 @@ from pokemon.pokemon_types import EnergyType, PokemonType, EnergyContainer, weak
 
 @dataclass(frozen=True)
 class Ability:
+    id_str:str
     name:str
     text:str
-    effect:str
+    effect:tuple[str,tuple]
+    trigger:str
+
+    def get_effect(self) -> tuple[str,tuple]:
+        return self.effect
 
 @dataclass(frozen=True)
 class Attack:
@@ -147,7 +152,7 @@ class PokemonCard(PlayingCard):
     attacks: tuple[Attack]
     retreat_cost: int
     level: int = 0
-    ability: tuple[Ability] = field(default_factory=tuple[Ability])
+    abilities: tuple[Ability] = field(default_factory=tuple[Ability])
 
     def id_str(self) -> str:
         return f"{self.get_name()} {self.version}"
