@@ -1,5 +1,6 @@
 from pokemon.pokemon_card import Attack, Ability, Pokemon, PokemonCard, Trainer, CardType
 from pokemon.pokemon_types import PokemonType, EnergyType, EnergyContainer
+from pokemon.pokemon_battle import UserInput 
 
 from frozendict import frozendict
 
@@ -116,6 +117,7 @@ def generate_trainers() -> dict[str,Trainer]:
     oak      = Trainer("Professor's Research", "Draw 2 cards.",                                                        "draw",        (2,),                           CardType.SUPPORTER)
     sabrina  = Trainer("Sabrina",              "Your opponent swaps their active pokemon with a card on their bench.", "swap_active", tuple(),                        CardType.SUPPORTER)
     pokeball = Trainer("Pokeball",             "Put a random Basic Pokemon from your bench into your hand.",           "get_card",    (1,CardType.POKEMON,None,True), CardType.ITEM)
+    potion   = Trainer('Potion',               'Heal 20 damage from one of your cards.',                               "heal",        (UserInput('int', 'Select a card to heal.'), 20),                   CardType.ITEM)
     return {
         oak.name: oak,
         sabrina.name: sabrina,

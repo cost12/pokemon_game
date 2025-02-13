@@ -283,7 +283,7 @@ class Turn:
 
     def reset(self) -> None:
         self.used_supporters = 0
-        self.retreated       = False
+        self.retreats        = 0
         self.energy_used     = False
         self.attacks_used    = 0
 
@@ -305,6 +305,7 @@ class Rules:
     SUPPORTERS_PER_TURN:int = 1
     ATTACKS_PER_TURN  :int  = 1
     ABILITIES_PER_CARD:int  = 1
+    RETREATS_PER_TURN :int  = 1
 
     def get_actions(self) -> dict[str,'Action']:
         return {action.action_name():action for action in self.actions}
@@ -337,6 +338,11 @@ class Rules:
             else:
                 card_names[card.get_name()] = 1
         return has_basic or not self.BASIC_REQUIRED
+
+class UserInput:
+    def __init__(self, input_type:str, prompt:str):
+        self.input_type = input_type
+        self.prompt = prompt
 
 class ActionPriority(Enum):
     ATTACK_EFFECT  = 0
@@ -564,7 +570,7 @@ class HealEffect(Effect):
     def is_valid(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
         if battle.ready_for_action(self.effect_name()):
             if len(inputs) == 2 and inputs[1] > 0:
-                if inputs[0] == 'all':
+                if inputs[0] in {'all','user'}:
                     for active in battle.current_deck().active:
                         if active.damage > 0:
                             return True
@@ -590,6 +596,10 @@ class HealEffect(Effect):
             elif who == 'bench':
                 for active in battle.current_deck().active[1:]:
                     active.heal(how_much)
+            elif who == 'user':
+                # options:
+                # - create an action that gets user input and then passes it to an action or effect
+                battle.push_action()
             else:
                 who = int(who)
                 battle.current_deck().active[who].heal(how_much)
@@ -1050,6 +1060,7 @@ class RetreatAction(Action):
             active_index, energies = inputs
             deck = battle.current_deck()
             deck.retreat(active_index, energies)
+            battle.current_turn.retreats += 1
             return True
         return False
 
@@ -1058,8 +1069,9 @@ class RetreatAction(Action):
             active_index, energies = inputs
             deck = battle.current_deck()
             if battle.is_valid_active_index(active_index, deck):
-                if deck.bench_size() > 0 and deck.active[0].active_card().retreat_cost == energies.size() and deck.active[0].energies.at_least_as_big(energies):
-                    return True
+                if battle.current_turn.retreats < battle.rules.RETREATS_PER_TURN:
+                    if deck.bench_size() > 0 and deck.active[0].active_card().retreat_cost == energies.size() and deck.active[0].energies.at_least_as_big(energies):
+                        return True
         return False
 
     def is_valid_raw(self, inputs:tuple[str,...]) -> tuple[bool, tuple]:
@@ -1174,6 +1186,46 @@ class SelectActiveAction(Action):
     
     def input_format(self) -> str:
         return "select_active x"
+
+class SelectAction(Action):
+    def action(self, battle:BattleState, inputs:tuple) -> bool:
+        return 'select'
+
+    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
+        if battle.ready_for_action(self.action_name()):
+            return battle.next_action() == self.action_name()
+
+    def is_valid_raw(self, inputs:tuple[str,...]) -> tuple[bool, tuple]:
+        if len(inputs) == 2:
+            input_type, var = inputs
+            match input_type:
+                case 'int':
+                    try:
+                        var = int(var)
+                    except ValueError:
+                        return False
+                case 'string':
+                    pass
+                case 'energy':
+                    try:
+                        var = EnergyType[var.upper()]
+                    except ValueError:
+                        return False
+            return True, (var,)
+        return False
+
+    def could_act(self, battle:BattleState) -> bool:
+        if battle.ready_for_action(self.action_name()):
+            return battle.next_action() == self.action_name()
+
+    def action_name(self) -> str:
+        return 'select'
+
+    def action_description(self) -> str:
+        return 'Select a value as part of an attack/trainer/ability'
+
+    def input_format(self) -> str:
+        return 'select x'
 
 class EndTurnAction(Action):
     def action(self, battle:BattleState, inputs:tuple) -> bool:
