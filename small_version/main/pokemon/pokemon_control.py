@@ -235,12 +235,14 @@ class CommandLineBattleController(BattleController):
 
     def __prompt_command(self, user_input:str, own_deck:OwnDeckView, opponent_deck:OpponentDeckView, commandline_actions:dict[str,CommandLineAction], available_actions:dict[str,Action], score:tuple[int], partial_inputs:tuple) -> tuple[bool,str,tuple]:
         tokens = user_input.split(" ")
-        if partial_inputs is not None:
+        if 0 and partial_inputs is not None:
             tokens = (tokens[0], *partial_inputs, *tokens[1:])
         if tokens[0] in available_actions:
-            valid, inputs = available_actions[tokens[0]].is_valid_raw(tokens[1:])
+            valid, inputs = available_actions[tokens[0]].is_valid_raw(tokens[1:] if partial_inputs is None else (*partial_inputs, *tokens[1:]))
             if valid:
                 return True, tokens[0], inputs
+            else:
+                print(f"Invalid inputs for {tokens[0]}")
         if tokens[0] in commandline_actions:
             valid, inputs = commandline_actions[tokens[0]].is_valid_raw(tokens[1:], own_deck, opponent_deck, commandline_actions, available_actions, score, partial_inputs)
             if valid:

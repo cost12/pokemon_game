@@ -7,8 +7,10 @@ Known Bugs/what to fix/implement next:
     4. game makes you select active when game is over
     5. state winner at the end
     6. sort hand/bench
+    7. proff research with no deck
 
 Stuff to do:
+    0. server/client programs to allow multiplayer
     1. abilities
     2. conditions
     2. more cards
@@ -17,8 +19,7 @@ Stuff to do:
     5. battle building
     6. energy cards
     7. alternative evolution/rule options
-    8. multiplayer
-    9. visualizations
+    8. visualizations
 
 Test next:
-    1.
+    1. retreat

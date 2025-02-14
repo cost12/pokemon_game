@@ -59,9 +59,13 @@ class ActivePokemon:
     def retreat(self, energies:EnergyContainer) -> None:
         self.energies = self.energies.remove_energies(energies)
 
-    def discard_energy(self, energy_type:EnergyContainer, number:int) -> None:
+    def discard_energy(self, energy_type:EnergyContainer, number:int) -> EnergyContainer:
         if self.energies.size_of(energy_type) > 0:
-            self.energies = self.energies.remove_energies(EnergyContainer(frozendict({energy_type:min(number, self.energies.size_of(energy_type))})))
+            remove = min(number, self.energies.size_of(energy_type))
+            removed = EnergyContainer(frozendict({energy_type:remove}))
+            self.energies = self.energies.remove_energies(removed)
+            return removed
+        return EnergyContainer()
 
     def take_damage(self, amount:int, damage_type:EnergyType, apply_weakness_resistance:bool) -> 'ActivePokemon':
         total = amount
@@ -258,7 +262,10 @@ def get_opponent_deck_view(deck:DeckSetup) -> OpponentDeckView:
     """
     active = list[ActivePokemon]()
     for a in deck.active:
-        active.append(a.copy())
+        if a is not None:
+            active.append(a.copy())
+        else:
+            active.append(None)
     return OpponentDeckView(active, len(deck.hand), len(deck.deck), list(deck.next_energies), list(deck.discard), deck.energy_discard)
 
 def get_own_deck_view(deck:DeckSetup) -> OpponentDeckView:
@@ -653,7 +660,8 @@ class DiscardEnergyEffect(Effect):
                 print("do this")
             else:
                 who = int(who)
-                deck.active[who].discard_energy(what_type, how_many)
+                removed = deck.active[who].discard_energy(what_type, how_many)
+                deck.energy_discard.add_energy(removed)
             return True
         return False
 
@@ -1106,7 +1114,8 @@ class RetreatAction(Action):
     def could_act(self, battle:BattleState) -> bool:
         if battle.battle_going() and battle.ready_for_action(self.action_name()):
             deck = battle.current_deck()
-            return deck.active[0].active_card().retreat_cost <= deck.active[0].energies.size() and deck.bench_size() > 0
+            if battle.current_turn.retreats < battle.rules.RETREATS_PER_TURN:
+                return deck.active[0].active_card().retreat_cost <= deck.active[0].energies.size() and deck.bench_size() > 0
         return False
 
     def action_name(self) -> str:
