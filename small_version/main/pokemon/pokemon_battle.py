@@ -516,7 +516,7 @@ class DrawCardsEffect(Effect):
                     n = int(inputs[0])
                 except ValueError:
                     return False
-                return True
+                return len(battle.current_deck().deck) > 0
         return False
 
     def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
