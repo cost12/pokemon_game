@@ -583,6 +583,42 @@ class SwapActiveEffect(Effect):
         battle.push_action(("switch_move", tuple()), ActionPriority.LATE_EFFECT.value)
         return True
 
+class DamageEffect(Effect):
+    def effect_name(self) -> str:
+        return 'damage'
+
+    def effect_description(self) -> str:
+        return "Damage an ActivePokemon"
+
+    def is_valid(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
+        if battle.ready_for_action(self.effect_name()):
+            if len(inputs) == 2 and inputs[1] > 0:
+                if inputs[0] in {'all', 'bench'} or isinstance(inputs[0], UserInput):
+                    return True
+                else:
+                    try:
+                        active_index = int(inputs[0])
+                    except ValueError:
+                        return False
+                    if battle.is_valid_active_index(active_index, battle.current_deck()):
+                        return True
+        return False
+
+    def effect(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
+        if self.is_valid(battle, inputs):
+            who, how_much = inputs
+            if who == 'all':
+                for active in battle.current_deck().active:
+                    active.take_damage(how_much, EnergyType.COLORLESS, False)
+            elif who == 'bench':
+                for active in battle.current_deck().active[1:]:
+                    active.take_damage(how_much, EnergyType.COLORLESS, False)
+            else:
+                who = int(who)
+                battle.current_deck().active[who].take_damage(how_much, EnergyType.COLORLESS, False)
+            return True
+        return False
+
 class HealEffect(Effect):
     def effect_name(self) -> str:
         return 'heal'
@@ -619,10 +655,6 @@ class HealEffect(Effect):
             elif who == 'bench':
                 for active in battle.current_deck().active[1:]:
                     active.heal(how_much)
-            elif who == 'user':
-                # options:
-                # - create an action that gets user input and then passes it to an action or effect
-                battle.push_action()
             else:
                 who = int(who)
                 battle.current_deck().active[who].heal(how_much)
@@ -1357,6 +1389,7 @@ def standard_effects() -> set[Effect]:
         EndTurnEffect(),
         SwapActiveEffect(),
         HealEffect(),
+        DamageEffect(),
         DiscardEnergyEffect(),
     ])
 

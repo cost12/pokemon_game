@@ -20,6 +20,8 @@ Stuff to do:
     6. energy cards
     7. alternative evolution/rule options
     8. visualizations
+    9. sabrina to multiple effects
+    10. EnergyContainer/Collection to mutable objects
 
 Test next:
     1. retreat

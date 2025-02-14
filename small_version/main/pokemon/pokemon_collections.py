@@ -28,6 +28,10 @@ def generate_attacks() -> dict[str,Attack]:
     find_a_friend = Attack('caterpie_0',  'Find A Friend', ('base', (0,)),   EnergyContainer(frozendict({EnergyType.COLORLESS:1})), PokemonType.BUG, 'Put 1 random GRASS pokemon from your deck into your hand.', effect=('get_card', (1, CardType.POKEMON, EnergyType.GRASS, False)))
     bug_bite      = Attack('metapod_0',   'Bug Bite',      ('base', (30,)),  EnergyContainer(frozendict({EnergyType.COLORLESS:2})), PokemonType.BUG)
     gust          = Attack('butterfree_0','Gust',          ('base', (60,)),  EnergyContainer(frozendict({EnergyType.GRASS:1,EnergyType.COLORLESS:2})), PokemonType.BUG)
+    bite          = Attack('growlithe_0', 'Bite',          ('base', (20,)),  EnergyContainer(frozendict({EnergyType.COLORLESS:2})),                    PokemonType.FIRE)
+    heat_tackle   = Attack('arcanine_0',  'Heat Tackle',   ('base', (100,)), EnergyContainer(frozendict({EnergyType.COLORLESS:1,EnergyType.FIRE:2})),  PokemonType.FIRE, 'This Pokemon also does 20 damage to itself.', effect=('damage', (0, 20)))
+    inferno_onrush= Attack('arcanine_1',  'Inferno Onrush',('base', (120,)), EnergyContainer(frozendict({EnergyType.COLORLESS:1,EnergyType.FIRE:2})),  PokemonType.FIRE, 'This Pokemon also does 20 damage to itself.', effect=('damage', (0, 20)))
+
     attacks = {
         vine_whip.id_str:     vine_whip,
         razor_leaf.id_str:    razor_leaf,
@@ -46,6 +50,9 @@ def generate_attacks() -> dict[str,Attack]:
         find_a_friend.id_str: find_a_friend,
         bug_bite.id_str:      bug_bite,
         gust.id_str:          gust,
+        bite.id_str:          bite,
+        heat_tackle.id_str:   heat_tackle,
+        inferno_onrush.id_str:inferno_onrush,
     }
     return attacks
 
@@ -62,6 +69,8 @@ def generate_pokemon() -> dict[str,Pokemon]:
     caterpie   = Pokemon('Caterpie',   None,       (PokemonType.BUG,))
     metapod    = Pokemon('Metapod',    caterpie,   (PokemonType.BUG,))
     butterfree = Pokemon('Butterfree', metapod,    (PokemonType.BUG,))
+    growlithe  = Pokemon('Growlithe',  None,       (PokemonType.FIRE,))
+    arcanine   = Pokemon('Arcanine',   growlithe,  (PokemonType.FIRE,))
     pokemon = {
         bulbasaur.name:  bulbasaur,
         ivysaur.name:    ivysaur,
@@ -75,6 +84,8 @@ def generate_pokemon() -> dict[str,Pokemon]:
         caterpie.name:   caterpie,
         metapod.name:    metapod,
         butterfree.name: butterfree,
+        growlithe.name:  growlithe,
+        arcanine.name:   arcanine,
     }
     return pokemon
 
@@ -94,6 +105,9 @@ def generate_pokemon_cards(pokemon:dict[str,Pokemon], attacks:dict[str,Attack], 
     caterpie     = PokemonCard(pokemon['Caterpie'],   0,  50, PokemonType.BUG,   (attacks['caterpie_0'],), 1)
     metapod      = PokemonCard(pokemon['Metapod'],    0,  80, PokemonType.BUG,   (attacks['metapod_0'],), 2)
     butterfree   = PokemonCard(pokemon['Butterfree'], 0, 120, PokemonType.BUG,   (attacks['butterfree_0'],), 1, abilities=(abilities['butterfree_0'],))
+    growlithe    = PokemonCard(pokemon['Growlithe'],  0,  70, PokemonType.FIRE,  (attacks['growlithe_0'],), 1)
+    arcanine     = PokemonCard(pokemon['Arcanine'],   0, 130, PokemonType.FIRE,  (attacks['arcanine_0'],), 2)
+    arcanine_ex  = PokemonCard(pokemon['Arcanine'],   0, 150, PokemonType.FIRE,  (attacks['arcanine_1'],), 2, level=102)
     pokemon = {
         bulbasaur.id_str():    bulbasaur,
         ivysaur.id_str():      ivysaur,
@@ -110,6 +124,9 @@ def generate_pokemon_cards(pokemon:dict[str,Pokemon], attacks:dict[str,Attack], 
         caterpie.id_str():     caterpie,
         metapod.id_str():      metapod,
         butterfree.id_str():   butterfree,
+        growlithe.id_str():    growlithe,
+        arcanine.id_str():     arcanine,
+        arcanine_ex.id_str():  arcanine_ex,
     }
     return pokemon
 
