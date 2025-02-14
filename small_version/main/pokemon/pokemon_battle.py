@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from collections import deque
 from enum import Enum
 from frozendict import frozendict
+from typing import Any
 
 class ActivePokemon:
 
@@ -343,8 +344,21 @@ class UserInput:
     def __init__(self, input_type:str, prompt:str):
         self.input_type = input_type
         self.prompt = prompt
+        self.value = None
+        self.has_value = False
+
+    def pass_value(self, value) -> None:
+        self.value = value
+        self.has_value = True
+
+    def take_value(self) -> Any:
+        val = self.value
+        self.value = None
+        self.has_value = False
+        return val
 
 class ActionPriority(Enum):
+    NOW            = -1
     ATTACK_EFFECT  = 0
     REPLACE_ACTIVE = 1
     AFTER_REPLACE  = 2
@@ -368,33 +382,34 @@ class BattleState:
         self.team2_ready = team2_ready
         self.current_turn = current_turn if current_turn is not None else Turn()
         self.action_queue = action_queue if action_queue is not None else utils.PriorityQueue[tuple[str,tuple]]()
-        self.current_action = None
 
     def next_action(self) -> str:
-        if self.current_action is None:
-            if self.action_queue.size() > 0:
-                return self.action_queue.top()[0]
-            return None
-        return self.current_action[0]
+        if self.action_queue.size() > 0:
+            return self.action_queue.top()[0]
+        return None
     
     def push_action(self, action:tuple[str,tuple], priority:int) -> None:
         if self.battle_going():
             self.action_queue.push(priority, action)
 
-    def pop_action(self) -> tuple[str,tuple]:
+    def get_partial_inputs(self) -> tuple:
+        if self.action_queue.size() > 0:
+            return self.action_queue.top()[1]
+
+    def top_action(self) -> tuple[str,tuple]:
         if self.battle_going():
-            self.current_action = self.action_queue.pop()
-            return self.current_action
+            current_action = self.action_queue.top()
+            return current_action
     
     def end_current_action(self) -> None:
-        self.current_action = None
+        if self.action_queue.size() > 0:
+            self.action_queue.pop()
     
     def queued_actions(self) -> int:
-        return self.action_queue.size() + (0 if self.current_action is None else 1)
+        return self.action_queue.size()
     
     def end(self) -> None:
         if self.is_over():
-            self.current_action = None
             self.action_queue.clear()
 
     def team1_move(self) -> bool:
@@ -464,7 +479,8 @@ class BattleState:
         self.deck2.between_turns()
 
     def ready_for_action(self, action:str) -> bool:
-        return self.battle_going() and (self.queued_actions() == 0 or (self.current_action is not None and self.current_action[0] == action))
+        return self.battle_going() and (self.queued_actions() == 0 or self.next_action() == action)
+
 
 class Effect:
     def effect_name(self) -> str:
@@ -570,7 +586,7 @@ class HealEffect(Effect):
     def is_valid(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
         if battle.ready_for_action(self.effect_name()):
             if len(inputs) == 2 and inputs[1] > 0:
-                if inputs[0] in {'all','user'}:
+                if inputs[0] in {'all'} or isinstance(inputs[0], UserInput):
                     for active in battle.current_deck().active:
                         if active.damage > 0:
                             return True
@@ -736,8 +752,7 @@ class PlayTrainerAction(Action):
             deck = battle.current_deck()
             trainer = deck.hand[hand_index]
             deck.play_card_from_hand(hand_index)
-            effect, inputs = trainer.get_action()
-            battle.rules.get_effects()[effect].effect(battle, inputs)
+            battle.push_action(trainer.get_action(), ActionPriority.ATTACK_EFFECT.value)
             if trainer.get_card_type() == CardType.SUPPORTER:
                 battle.current_turn.used_supporters += 1
             return True
@@ -1004,7 +1019,6 @@ class AttackAction(Action):
                         battle.push_action(attack.get_effect(), ActionPriority.ATTACK_EFFECT.value)
             battle.current_turn.attacks_used += 1
             if defending_deck.active[0] is None:
-                print("switch")
                 if battle.team1_turn():
                     battle.team1_points += 1 if attacked.level <= 100 else 2
                 else:
@@ -1145,7 +1159,7 @@ class PlaceEnergyAction(Action):
     
     def input_format(self) -> str:
         return "place_energy x"
-    
+
 class SelectActiveAction(Action):
     def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
         if self.is_valid(battle, inputs):
@@ -1188,31 +1202,22 @@ class SelectActiveAction(Action):
         return "select_active x"
 
 class SelectAction(Action):
-    def action(self, battle:BattleState, inputs:tuple) -> bool:
-        return 'select'
-
-    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
-        if battle.ready_for_action(self.action_name()):
-            return battle.next_action() == self.action_name()
-
-    def is_valid_raw(self, inputs:tuple[str,...]) -> tuple[bool, tuple]:
-        if len(inputs) == 2:
-            input_type, var = inputs
-            match input_type:
-                case 'int':
-                    try:
-                        var = int(var)
-                    except ValueError:
-                        return False
-                case 'string':
-                    pass
-                case 'energy':
-                    try:
-                        var = EnergyType[var.upper()]
-                    except ValueError:
-                        return False
-            return True, (var,)
+    def action(self, battle:BattleState, inputs:tuple[UserInput,str]) -> bool:
+        if self.is_valid(battle, inputs):
+            user_input, val = inputs
+            user_input.pass_value(val)
+            return True
         return False
+
+    def is_valid(self, battle:BattleState, inputs:tuple[UserInput,str]) -> bool:
+        if battle.ready_for_action(self.action_name()):
+            return battle.next_action() == self.action_name() and len(inputs) == 2
+
+    def is_valid_raw(self, inputs:tuple[UserInput, str]) -> tuple[bool, tuple]:
+        if len(inputs) == 2:
+            user_input, val = inputs
+            return True, (user_input,val)
+        return False, None
 
     def could_act(self, battle:BattleState) -> bool:
         if battle.ready_for_action(self.action_name()):
@@ -1252,12 +1257,14 @@ class EndTurnAction(Action):
     def input_format(self) -> str:
         return "end_turn"
 
+
 class Battle:
     """Represents a battle between two decks of cards
     """
 
     def __init__(self, state:BattleState):
         self.state = state
+        self.log = None # TODO
 
     def team1_move(self) -> bool:
         return self.state.team1_move()
@@ -1269,18 +1276,38 @@ class Battle:
         return self.state.is_over()
     
     def action(self, action:str, inputs:tuple) -> bool:
+        success = True
         if action in self.state.rules.get_actions():
             success = self.state.rules.get_actions()[action].action(self.state, inputs)
             if not success:
                 return False
-            self.state.end_current_action()
-        while self.state.queued_actions() > 0:
-            sub_action, sub_inputs = self.state.pop_action()
-            if sub_action in self.state.rules.get_actions():
-                return success
-            elif sub_action in self.state.rules.get_effects():
-                assert self.state.rules.get_effects()[sub_action].effect(self.state, sub_inputs)
+            if action == self.state.next_action():
                 self.state.end_current_action()
+        while self.state.queued_actions() > 0:
+            sub_action, sub_inputs = self.state.top_action()
+            if sub_action in self.state.rules.get_actions():
+                return True
+            
+            user_input_needed = False
+            for sub_input in sub_inputs:
+                if isinstance(sub_input, UserInput) and not sub_input.has_value:
+                    self.state.push_action(('select', (sub_input,)), ActionPriority.NOW.value)
+                    user_input_needed = True
+            if user_input_needed:
+                return success
+            
+            if sub_action in self.state.rules.get_effects():
+                new_inputs = []
+                for i in range(len(sub_inputs)):
+                    sub_input = sub_inputs[i]
+                    if isinstance(sub_input, UserInput):
+                        new_inputs.append(sub_input.take_value())
+                    else:
+                        new_inputs.append(sub_input)
+                if self.state.rules.get_effects()[sub_action].effect(self.state, tuple(new_inputs)):
+                    self.state.end_current_action()
+                else:
+                    success = False
             else:
                 print(f"error: {sub_action}: {sub_inputs}")
         return success
@@ -1293,6 +1320,9 @@ class Battle:
     
     def get_score(self) -> tuple[int]:
         return self.state.team1_points, self.state.team2_points
+    
+    def get_partial_inputs(self) -> tuple:
+        return self.state.get_partial_inputs()
 
 def standard_actions() -> set[Action]:
     actions = set[Action]([
@@ -1305,6 +1335,7 @@ def standard_actions() -> set[Action]:
         RetreatAction(),
         PlaceEnergyAction(),
         SelectActiveAction(),
+        SelectAction(),
         EndTurnAction(),
     ])
     return actions

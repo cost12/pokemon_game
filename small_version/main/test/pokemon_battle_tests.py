@@ -618,4 +618,51 @@ def test_caterpie_find():
     battle.action('attack', (0,))
     assert battle.state.defending_deck().hand[-1] == cards['Ivysaur 0']
 
+def test_potion():
+    cards = get_cards()
+    deck_cards = [
+        cards['Bulbasaur 0'],
+        cards['Potion'],
+        cards['Potion'],
+        cards['Potion'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0'],
+        cards['Bulbasaur 0'],
+        cards['Ivysaur 0'],
+        cards['Venusaur 0'],
+        cards['Venusaur ex 0']
+    ]
+    battle = deterministic_battle_setup(deck_cards)
+    assert battle.action('setup', (True,0))
+    assert battle.action('setup', (False,0))
+    battle.state.current_deck().active[0] = ActivePokemon([cards['Venusaur ex 0']])
+    # don't increase max hp
+    assert not battle.action('trainer', (0,))
+
+    # heal partly
+    battle.state.current_deck().active[0].damage = 10
+    assert battle.action('trainer', (0,))
+    assert battle.action('select', (*battle.get_partial_inputs(), 0,))
+    assert battle.state.current_deck().active[0].hp() == 190
+
+    # heal bench
+    battle.state.current_deck().active.append(ActivePokemon([cards['Bulbasaur 0']], damage=50))
+    assert battle.action('trainer', (0,))
+    assert battle.action('select', (*battle.get_partial_inputs(), 1,))
+    assert battle.state.current_deck().active[1].hp() == 40
+
+    # heal with mistake
+    battle.state.current_deck().active.append(ActivePokemon([cards['Bulbasaur 0']], damage=50))
+    assert battle.action('trainer', (0,))
+    assert not battle.action('select', (*battle.get_partial_inputs(), 5,))
+    assert not battle.action('select', (*battle.get_partial_inputs(), 'cat',))
+    assert not battle.action('select', (*battle.get_partial_inputs(), 5,'whoops'))
+    assert battle.action('select', (*battle.get_partial_inputs(), 2,))
+    assert battle.state.current_deck().active[2].hp() == 40
+
 # END OF FULL BATTLE TESTING
