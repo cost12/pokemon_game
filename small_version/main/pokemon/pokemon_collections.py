@@ -5,7 +5,7 @@ from pokemon.pokemon_battle import UserInput
 from frozendict import frozendict
 
 def generate_abilities() -> dict[str,Ability]:
-    powder_heal = Ability('butterfree_0', 'Powder Heal', 'Once during your turn, you may heal 20 damage from each of your Pokemon.', ('heal', ('all', 20)), 'user')
+    powder_heal = Ability('butterfree_0', 'Powder Heal', 'Once during your turn, you may heal 20 damage from each of your Pokemon.', (('heal', ('all', 20)),), 'user')
     return {
         powder_heal.id_str: powder_heal
     }
@@ -13,24 +13,24 @@ def generate_abilities() -> dict[str,Ability]:
 def generate_attacks() -> dict[str,Attack]:
     vine_whip     = Attack('bulbasaur_0', 'Vine Whip',     ('base', (40,)),  EnergyContainer(frozendict({EnergyType.COLORLESS:1,EnergyType.GRASS:1})), PokemonType.GRASS)
     razor_leaf    = Attack('ivysaur_0',   'Razor Leaf',    ('base', (60,)),  EnergyContainer(frozendict({EnergyType.COLORLESS:2,EnergyType.GRASS:1})), PokemonType.GRASS)
-    giant_bloom1  = Attack('venusaur_0',  'Giant Bloom',   ('base', (80,)),  EnergyContainer(frozendict({EnergyType.COLORLESS:2,EnergyType.GRASS:2})), PokemonType.GRASS, 'Heal 30 damage from this pokemon.', effect=('heal', (0, 30)))
-    giant_bloom2  = Attack('venusaur_1',  'Giant Bloom',   ('base', (100,)), EnergyContainer(frozendict({EnergyType.COLORLESS:2,EnergyType.GRASS:2})), PokemonType.GRASS, 'Heal 30 damage from this pokemon.', effect=('heal', (0, 30)))
-    ember         = Attack('charmander_0','Ember',         ('base', (30,)),  EnergyContainer(frozendict({EnergyType.FIRE:1})),                         PokemonType.FIRE,  'Discard a FIRE energy from this pokemon.', effect=('discard_energy', (True, 0, 1, EnergyType.FIRE)))
+    giant_bloom1  = Attack('venusaur_0',  'Giant Bloom',   ('base', (80,)),  EnergyContainer(frozendict({EnergyType.COLORLESS:2,EnergyType.GRASS:2})), PokemonType.GRASS, 'Heal 30 damage from this pokemon.', effects=(('heal', (0, 30)),))
+    giant_bloom2  = Attack('venusaur_1',  'Giant Bloom',   ('base', (100,)), EnergyContainer(frozendict({EnergyType.COLORLESS:2,EnergyType.GRASS:2})), PokemonType.GRASS, 'Heal 30 damage from this pokemon.', effects=(('heal', (0, 30)),))
+    ember         = Attack('charmander_0','Ember',         ('base', (30,)),  EnergyContainer(frozendict({EnergyType.FIRE:1})),                         PokemonType.FIRE,  'Discard a FIRE energy from this pokemon.', effects=(('discard_energy', (True, 0, 1, EnergyType.FIRE)),))
     fire_claws    = Attack('charmeleon_0','Fire Claws',    ('base', (60,)),  EnergyContainer(frozendict({EnergyType.FIRE:1, EnergyType.COLORLESS:2})), PokemonType.FIRE)
     slash         = Attack('charizard_0', 'Slash',         ('base', (60,)),  EnergyContainer(frozendict({EnergyType.FIRE:1, EnergyType.COLORLESS:2})), PokemonType.FIRE)
-    fire_spin     = Attack('charizard_1', 'Fire Spin',     ('base', (150,)), EnergyContainer(frozendict({EnergyType.FIRE:2, EnergyType.COLORLESS:2})), PokemonType.FIRE,  'Discard 2 FIRE energy from this pokemon.', effect=('discard_energy', (True, 0, 2, EnergyType.FIRE)))
-    crimson_storm = Attack('charizard_2', 'Crimson Storm', ('base', (200,)), EnergyContainer(frozendict({EnergyType.FIRE:2, EnergyType.COLORLESS:2})), PokemonType.FIRE,  'Discard 2 FIRE energy from this pokemon.', effect=('discard_energy', (True, 0, 2, EnergyType.FIRE)))
+    fire_spin     = Attack('charizard_1', 'Fire Spin',     ('base', (150,)), EnergyContainer(frozendict({EnergyType.FIRE:2, EnergyType.COLORLESS:2})), PokemonType.FIRE,  'Discard 2 FIRE energy from this pokemon.', effects=(('discard_energy', (True, 0, 2, EnergyType.FIRE)),))
+    crimson_storm = Attack('charizard_2', 'Crimson Storm', ('base', (200,)), EnergyContainer(frozendict({EnergyType.FIRE:2, EnergyType.COLORLESS:2})), PokemonType.FIRE,  'Discard 2 FIRE energy from this pokemon.', effects=(('discard_energy', (True, 0, 2, EnergyType.FIRE)),))
     water_gun     = Attack('squirtle_0',  'Water Gun',     ('base', (20,)),  EnergyContainer(frozendict({EnergyType.WATER:1})),                        PokemonType.WATER)
     wave_splash   = Attack('wartortle_0', 'Wave Splash',   ('base', (40,)),  EnergyContainer(frozendict({EnergyType.WATER:1,EnergyType.COLORLESS:1})), PokemonType.WATER)
     surf          = Attack('blastoise_0', 'Surf',          ('base', (40,)),  EnergyContainer(frozendict({EnergyType.WATER:1,EnergyType.COLORLESS:1})), PokemonType.WATER)
     hydro_pump    = Attack('blastoise_1', 'Hydro Pump',    ('energy_boost',  (80,  60, 2, EnergyType.WATER)),  EnergyContainer(frozendict({EnergyType.WATER:2,EnergyType.COLORLESS:1})), PokemonType.WATER, 'If this Pokemon has at least 2 extra WATER energy attached, this attack does 60 more damage.')
     hydro_bazooka = Attack('blastoise_2', 'Hydro Bazooka', ('energy_boost',  (100, 60, 2, EnergyType.WATER)), EnergyContainer(frozendict({EnergyType.WATER:2,EnergyType.COLORLESS:1})), PokemonType.WATER, 'If this Pokemon has at least 2 extra WATER energy attached, this attack does 60 more damage.')
-    find_a_friend = Attack('caterpie_0',  'Find A Friend', ('base', (0,)),   EnergyContainer(frozendict({EnergyType.COLORLESS:1})), PokemonType.BUG, 'Put 1 random GRASS pokemon from your deck into your hand.', effect=('get_card', (1, CardType.POKEMON, EnergyType.GRASS, False)))
+    find_a_friend = Attack('caterpie_0',  'Find A Friend', ('base', (0,)),   EnergyContainer(frozendict({EnergyType.COLORLESS:1})), PokemonType.BUG, 'Put 1 random GRASS pokemon from your deck into your hand.', effects=(('get_card', (1, CardType.POKEMON, EnergyType.GRASS, False)),))
     bug_bite      = Attack('metapod_0',   'Bug Bite',      ('base', (30,)),  EnergyContainer(frozendict({EnergyType.COLORLESS:2})), PokemonType.BUG)
     gust          = Attack('butterfree_0','Gust',          ('base', (60,)),  EnergyContainer(frozendict({EnergyType.GRASS:1,EnergyType.COLORLESS:2})), PokemonType.BUG)
     bite          = Attack('growlithe_0', 'Bite',          ('base', (20,)),  EnergyContainer(frozendict({EnergyType.COLORLESS:2})),                    PokemonType.FIRE)
-    heat_tackle   = Attack('arcanine_0',  'Heat Tackle',   ('base', (100,)), EnergyContainer(frozendict({EnergyType.COLORLESS:1,EnergyType.FIRE:2})),  PokemonType.FIRE, 'This Pokemon also does 20 damage to itself.', effect=('damage', (0, 20)))
-    inferno_onrush= Attack('arcanine_1',  'Inferno Onrush',('base', (120,)), EnergyContainer(frozendict({EnergyType.COLORLESS:1,EnergyType.FIRE:2})),  PokemonType.FIRE, 'This Pokemon also does 20 damage to itself.', effect=('damage', (0, 20)))
+    heat_tackle   = Attack('arcanine_0',  'Heat Tackle',   ('base', (100,)), EnergyContainer(frozendict({EnergyType.COLORLESS:1,EnergyType.FIRE:2})),  PokemonType.FIRE, 'This Pokemon also does 20 damage to itself.', effects=(('damage', (0, 20)),))
+    inferno_onrush= Attack('arcanine_1',  'Inferno Onrush',('base', (120,)), EnergyContainer(frozendict({EnergyType.COLORLESS:1,EnergyType.FIRE:2})),  PokemonType.FIRE, 'This Pokemon also does 20 damage to itself.', effects=(('damage', (0, 20)),))
 
     attacks = {
         vine_whip.id_str:     vine_whip,
@@ -131,10 +131,10 @@ def generate_pokemon_cards(pokemon:dict[str,Pokemon], attacks:dict[str,Attack], 
     return pokemon
 
 def generate_trainers() -> dict[str,Trainer]:
-    oak      = Trainer("Professor's Research", "Draw 2 cards.",                                                        "draw",        (2,),                           CardType.SUPPORTER)
-    sabrina  = Trainer("Sabrina",              "Your opponent swaps their active pokemon with a card on their bench.", "swap_active", tuple(),                        CardType.SUPPORTER)
-    pokeball = Trainer("Pokeball",             "Put a random Basic Pokemon from your bench into your hand.",           "get_card",    (1,CardType.POKEMON,None,True), CardType.ITEM)
-    potion   = Trainer('Potion',               'Heal 20 damage from one of your cards.',                               "heal",        (UserInput('int', 'Select a card to heal.'), 20), CardType.ITEM)
+    oak      = Trainer(CardType.SUPPORTER, "Professor's Research", "Draw 2 cards.",                                                        (("draw", (2,)),))
+    sabrina  = Trainer(CardType.SUPPORTER, "Sabrina",              "Your opponent swaps their active pokemon with a card on their bench.", (('switch_active',(UserInput('Select a new active pokemon.', False), False)),))
+    pokeball = Trainer(CardType.ITEM,      "Pokeball",             "Put a random Basic Pokemon from your bench into your hand.",           (("get_card", (1,CardType.POKEMON,None,True)),))
+    potion   = Trainer(CardType.ITEM,      'Potion',               'Heal 20 damage from one of your cards.',                               (("heal", (UserInput('Select a card to heal.'), 20)),))
     return {
         oak.name      :oak,
         sabrina.name  :sabrina,

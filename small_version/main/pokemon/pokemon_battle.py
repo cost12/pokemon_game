@@ -348,11 +348,14 @@ class Rules:
         return has_basic or not self.BASIC_REQUIRED
 
 class UserInput:
-    def __init__(self, input_type:str, prompt:str):
-        self.input_type = input_type
+    def __init__(self, prompt:str, current_user:bool=True):
         self.prompt = prompt
+        self.current_user = current_user
         self.value = None
         self.has_value = False
+
+    def switch_user(self) -> bool:
+        return not self.current_user
 
     def pass_value(self, value) -> None:
         self.value = value
@@ -499,6 +502,9 @@ class Effect:
     def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
         pass
 
+    def could_be_valid(self, battle:BattleState, inputs:tuple) -> bool:
+        pass
+
     def effect(self, battle:BattleState, inputs:tuple) -> bool:
         pass
 
@@ -512,12 +518,12 @@ class DrawCardsEffect(Effect):
     def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
         if battle.ready_for_action(self.effect_name()):
             if len(inputs) == 1:
-                try:
-                    n = int(inputs[0])
-                except ValueError:
-                    return False
-                return len(battle.current_deck().deck) > 0
+                if isinstance(inputs[0], int):
+                    return len(battle.current_deck().deck) > 0 and len(battle.current_deck().hand) < battle.rules.MAX_HAND_SIZE
         return False
+    
+    def could_be_valid(self, battle:BattleState, inputs:tuple[int]):
+        return len(inputs) == 1 and isinstance(inputs[0], int) and len(battle.current_deck().deck) > 0 and len(battle.current_deck().hand) < battle.rules.MAX_HAND_SIZE
 
     def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
         if self.is_valid(battle, inputs):
@@ -537,12 +543,15 @@ class SwitchMoveEffect(Effect):
     def effect_description(self) -> str:
         return "Switch the move from one player to another"
 
-    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
         if battle.ready_for_action(self.effect_name()):
             return battle.next_action() == self.effect_name()
         return False
+    
+    def could_be_valid(self, battle:BattleState, inputs:tuple):
+        return True
 
-    def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
+    def effect(self, battle:BattleState, inputs:tuple) -> bool:
         if self.is_valid(battle, inputs):
             battle.next_move_team1 = not battle.next_move_team1
             return True
@@ -555,33 +564,18 @@ class EndTurnEffect(Effect):
     def effect_description(self) -> str:
         return "End the player's turn"
 
-    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
+    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
         if battle.ready_for_action(self.effect_name()):
             return battle.next_action() == self.effect_name() and len(inputs) == 0
         return False
+    
+    def could_be_valid(self, battle:BattleState, inputs:tuple):
+        return len(inputs) == 0
 
-    def effect(self, battle:BattleState, inputs:tuple[int]) -> bool:
+    def effect(self, battle:BattleState, inputs:tuple) -> bool:
         if self.is_valid(battle, inputs):
             return battle.end_turn()
         return False
-
-class SwapActiveEffect(Effect):
-    def effect_name(self) -> str:
-        return "swap_active"
-
-    def effect_description(self) -> str:
-        return "Switch the defending pokemon with a benched pokemon"
-
-    def is_valid(self, battle:BattleState, inputs:tuple) -> bool:
-        if battle.ready_for_action(self.effect_name()):
-            return battle.defending_deck().bench_size() > 0 and len(inputs) == 0
-        return False
-
-    def effect(self, battle:BattleState, inputs:tuple) -> bool:
-        battle.next_move_team1 = not battle.next_move_team1
-        battle.push_action(("select_active", tuple()), ActionPriority.LATE_EFFECT.value)
-        battle.push_action(("switch_move", tuple()), ActionPriority.LATE_EFFECT.value)
-        return True
 
 class DamageEffect(Effect):
     def effect_name(self) -> str:
@@ -593,14 +587,21 @@ class DamageEffect(Effect):
     def is_valid(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
         if battle.ready_for_action(self.effect_name()):
             if len(inputs) == 2 and inputs[1] > 0:
-                if inputs[0] in {'all', 'bench'} or isinstance(inputs[0], UserInput):
+                if inputs[0] in {'all', 'bench'}:
                     return True
                 else:
-                    try:
-                        active_index = int(inputs[0])
-                    except ValueError:
-                        return False
-                    if battle.is_valid_active_index(active_index, battle.current_deck()):
+                    if isinstance(inputs[0], int):
+                        if battle.is_valid_active_index(inputs[0], battle.current_deck()):
+                            return True
+        return False
+    
+    def could_be_valid(self, battle:BattleState, inputs:tuple[str|int,int]):
+        if len(inputs) == 2 and inputs[1] > 0:
+            if inputs[0] in {'all', 'bench'} or isinstance(inputs[0], UserInput):
+                return True
+            else:
+                if isinstance(inputs[0], int):
+                    if battle.is_valid_active_index(inputs[0], battle.current_deck()):
                         return True
         return False
 
@@ -629,7 +630,7 @@ class HealEffect(Effect):
     def is_valid(self, battle:BattleState, inputs:tuple[str|int,int]) -> bool:
         if battle.ready_for_action(self.effect_name()):
             if len(inputs) == 2 and inputs[1] > 0:
-                if inputs[0] in {'all'} or isinstance(inputs[0], UserInput):
+                if inputs[0] in {'all'}:
                     for active in battle.current_deck().active:
                         if active.damage > 0:
                             return True
@@ -638,10 +639,25 @@ class HealEffect(Effect):
                         if active.damage > 0:
                             return True
                 else:
-                    try:
-                        active_index = int(inputs[0])
-                    except ValueError:
-                        return False
+                    if isinstance(inputs[0],int):
+                        active_index = inputs[0]
+                        if battle.is_valid_active_index(active_index, battle.current_deck()):
+                            return battle.current_deck().active[active_index].damage > 0
+        return False
+    
+    def could_be_valid(self, battle:BattleState, inputs:tuple[str|int,int]):
+        if len(inputs) == 2 and inputs[1] > 0:
+            if inputs[0] in {'all'} or isinstance(inputs[0], UserInput):
+                for active in battle.current_deck().active:
+                    if active.damage > 0:
+                        return True
+            elif inputs[0] == 'bench':
+                for active in battle.current_deck().active[1:]:
+                    if active.damage > 0:
+                        return True
+            else:
+                if isinstance(inputs[0],int):
+                    active_index = inputs[0]
                     if battle.is_valid_active_index(active_index, battle.current_deck()):
                         return battle.current_deck().active[active_index].damage > 0
         return False
@@ -677,10 +693,19 @@ class DiscardEnergyEffect(Effect):
                     if who == 'random':
                         return True
                     else:
-                        try:
-                            who = int(who)
-                        except ValueError:
-                            return False
+                        if isinstance(who,int):
+                            return battle.is_valid_active_index(who, deck)
+        return False
+    
+    def could_be_valid(self, battle:BattleState, inputs:tuple):
+        if len(inputs) == 4:
+            which_deck, who, how_many, what_type = inputs
+            if how_many > 0:
+                deck = battle.current_deck() if which_deck else battle.defending_deck()
+                if who == 'random':
+                    return True
+                else:
+                    if isinstance(who,int):
                         return battle.is_valid_active_index(who, deck)
         return False
 
@@ -713,6 +738,15 @@ class GetCardEffect(Effect):
                 if how_many > 0:
                     return True
         return False
+    
+    def could_be_valid(self, battle:BattleState, inputs:tuple) -> bool:
+        if len(inputs) == 4:
+            how_many, card_type, energy_type, is_basic = inputs
+            deck = battle.current_deck()
+            how_many = min(how_many, battle.rules.MAX_HAND_SIZE-len(deck.hand), len(deck.deck))
+            if how_many > 0:
+                return True
+        return False
 
     def effect(self, battle:BattleState, inputs:tuple) -> bool:
         if self.is_valid(battle, inputs):
@@ -723,6 +757,43 @@ class GetCardEffect(Effect):
             return True
         return False
 
+class SwitchActiveEffect(Effect):
+    def effect_name(self) -> str:
+        return 'switch_active'
+
+    def effect_description(self) -> str:
+        return "Switch the active pokemon with a benched pokemon"
+
+    def is_valid(self, battle:BattleState, inputs:tuple[int,bool]) -> bool:
+        if battle.ready_for_action(self.effect_name()) and battle.next_action() == self.effect_name():
+            if len(inputs) == 2:
+                bench_index, is_current_deck = inputs
+                deck = battle.current_deck() if is_current_deck else battle.defending_deck()
+                return battle.is_valid_bench_index(bench_index, deck)
+        return False
+    
+    def could_be_valid(self, battle:BattleState, inputs:tuple[int,bool]) -> bool:
+        if battle.ready_for_action(self.effect_name()):
+            if len(inputs) == 2:
+                bench_index, is_current_deck = inputs
+                deck = battle.current_deck() if is_current_deck else battle.defending_deck()
+                if isinstance(bench_index, UserInput):
+                    return deck.bench_size() > 0
+                return battle.is_valid_bench_index(bench_index, deck)
+        return False
+
+    def effect(self, battle:BattleState, inputs:tuple) -> bool:
+        if self.is_valid(battle, inputs):
+            bench_index, is_current_deck = inputs
+            if not is_current_deck:
+                battle.next_move_team1 = not battle.next_move_team1
+            deck = battle.current_deck()
+            deck.set_starter(bench_index)
+            if not is_current_deck:
+                battle.next_move_team1 = not battle.next_move_team1
+            return True
+        return False
+    
 
 class DamageEffect:
     def effect_name(self) -> str:
@@ -792,7 +863,8 @@ class PlayTrainerAction(Action):
             deck = battle.current_deck()
             trainer = deck.hand[hand_index]
             deck.play_card_from_hand(hand_index)
-            battle.push_action(trainer.get_action(), ActionPriority.ATTACK_EFFECT.value)
+            for effect in trainer.get_actions():
+                battle.push_action(effect, ActionPriority.ATTACK_EFFECT.value)
             if trainer.get_card_type() == CardType.SUPPORTER:
                 battle.current_turn.used_supporters += 1
             return True
@@ -804,9 +876,12 @@ class PlayTrainerAction(Action):
             deck = battle.current_deck()
             if battle.is_valid_trainer_index(hand_index, deck):
                 if not deck.hand[hand_index].get_card_type() == CardType.SUPPORTER or battle.current_turn.used_supporters < battle.rules.SUPPORTERS_PER_TURN:
-                    effect, inputs = deck.hand[hand_index].get_action()
-                    if effect in battle.rules.get_effects():
-                        return battle.rules.get_effects()[effect].is_valid(battle, inputs)
+                    effects = deck.hand[hand_index].get_actions()
+                    for effect, effect_inputs in effects:
+                        if effect in battle.rules.get_effects():
+                            if not battle.rules.get_effects()[effect].could_be_valid(battle, effect_inputs):
+                                return False
+                            return True
         return False
 
     def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
@@ -836,25 +911,25 @@ class PlayTrainerAction(Action):
 
 class SetupAction(Action):
     def action(self, battle:BattleState, inputs:tuple[bool, int]) -> bool:
-        if not self.is_valid(battle, inputs):
-            return False
-        is_team1 = inputs[0]
-        for i in range(1,len(inputs)):
-            subtract = 0
-            for j in range(1,i):
-                if inputs[j] < inputs[i]:
-                    subtract += 1
+        if self.is_valid(battle, inputs):
+            is_team1 = inputs[0]
+            for i in range(1,len(inputs)):
+                subtract = 0
+                for j in range(1,i):
+                    if inputs[j] < inputs[i]:
+                        subtract += 1
+                if is_team1:
+                    battle.deck1.play_basic(inputs[i]-subtract)
+                else:
+                    battle.deck2.play_basic(inputs[i]-subtract)
             if is_team1:
-                battle.deck1.play_basic(inputs[i]-subtract)
+                battle.team1_ready = True
             else:
-                battle.deck2.play_basic(inputs[i]-subtract)
-        if is_team1:
-            battle.team1_ready = True
-        else:
-            battle.team2_ready = True
-        if battle.team1_ready and battle.team2_ready:
-            battle.start_turn(False)
-        return True
+                battle.team2_ready = True
+            if battle.team1_ready and battle.team2_ready:
+                battle.start_turn(False)
+            return True
+        return False
     
     def is_valid(self, battle:BattleState, inputs:tuple[bool,int]) -> bool:
         is_team1 = inputs[0]
@@ -988,9 +1063,9 @@ class AbilityAction(Action):
             active_index, ability_index = inputs
             deck = battle.current_deck()
             ability = deck.active[active_index].active_card().abilities[ability_index]
-            effect, effect_inputs = ability.get_effect()
-            battle.rules.get_effects()[effect].effect(battle, effect_inputs)
-            deck.active[active_index].use_ability(ability_index)
+            for effect, effect_inputs in ability.get_effects():
+                battle.rules.get_effects()[effect].effect(battle, effect_inputs)
+                deck.active[active_index].use_ability(ability_index)
             return True
         return False
 
@@ -1004,9 +1079,11 @@ class AbilityAction(Action):
                     if deck.active[active_index].used_ability(ability_index) < battle.rules.ABILITIES_PER_CARD:
                         ability = abilities[ability_index]
                         if ability.trigger == 'user':
-                            effect, effect_inputs = ability.get_effect()
-                            if effect in battle.rules.get_effects():
-                                return battle.rules.get_effects()[effect].is_valid(battle, effect_inputs)
+                            for effect, effect_inputs in ability.get_effects():
+                                if effect in battle.rules.get_effects():
+                                    if not battle.rules.get_effects()[effect].could_be_valid(battle, effect_inputs):
+                                        return False
+                                return True
         return False
 
     def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
@@ -1052,11 +1129,11 @@ class AttackAction(Action):
             else:
                 damage = battle.rules.get_damage_effects()['base'].damage(battle, damage_inputs)
             defending_deck.take_damage(damage, deck.active[0].active_card().get_energy_type())
-            if attack.get_effect() is not None:
-                attack_effect, attack_inputs = attack.get_effect()
-                if attack_effect in battle.rules.get_effects():
-                    if battle.rules.get_effects()[attack_effect].is_valid(battle, attack_inputs):
-                        battle.push_action(attack.get_effect(), ActionPriority.ATTACK_EFFECT.value)
+            if attack.get_effects() is not None:
+                for attack_effect, attack_inputs in attack.get_effects():
+                    if attack_effect in battle.rules.get_effects():
+                        if battle.rules.get_effects()[attack_effect].could_be_valid(battle, attack_inputs):
+                            battle.push_action((attack_effect, attack_inputs), ActionPriority.ATTACK_EFFECT.value)
             battle.current_turn.attacks_used += 1
             if defending_deck.active[0] is None:
                 if battle.team1_turn():
@@ -1064,9 +1141,7 @@ class AttackAction(Action):
                 else:
                     battle.team2_points += 1 if attacked.level <= 100 else 2
                 if not battle.is_over():
-                    battle.push_action(('switch_move', tuple()), ActionPriority.REPLACE_ACTIVE.value)
-                    battle.push_action(('select_active', tuple()), ActionPriority.REPLACE_ACTIVE.value)
-                    battle.push_action(('switch_move', tuple()), ActionPriority.REPLACE_ACTIVE.value)
+                    battle.push_action(('switch_active', (UserInput("Select a new starting pokemon.",False),False)), ActionPriority.REPLACE_ACTIVE.value)
                 else:
                     battle.end()
             if battle.current_turn.attacks_used >= battle.rules.ATTACKS_PER_TURN:
@@ -1201,47 +1276,6 @@ class PlaceEnergyAction(Action):
     def input_format(self) -> str:
         return "place_energy x"
 
-class SelectActiveAction(Action):
-    def action(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if self.is_valid(battle, inputs):
-            bench_index = inputs[0]
-            deck = battle.current_deck()
-            deck.set_starter(bench_index)
-            return True
-        return False
-
-    def is_valid(self, battle:BattleState, inputs:tuple[int]) -> bool:
-        if battle.ready_for_action(self.action_name()):
-            bench_index = inputs[0]
-            deck = battle.current_deck()
-            return battle.next_action() == self.action_name() and battle.is_valid_bench_index(bench_index, deck)
-        return False
-
-    def is_valid_raw(self, inputs:tuple[str]) -> tuple[bool, tuple]:
-        if len(inputs) == 1:
-            try:
-                index = int(inputs[0])
-            except ValueError:
-                return False, None
-            return True, (index,)
-        return False, None
-
-    def could_act(self, battle:BattleState) -> bool:
-        deck = battle.current_deck()
-        for i in range(1, len(deck.active)):
-            if self.is_valid(battle, (i,)):
-                return True
-        return False
-
-    def action_name(self) -> str:
-        return "select_active"
-
-    def action_description(self) -> str:
-        return "Select a new active pokemon"
-    
-    def input_format(self) -> str:
-        return "select_active x"
-
 class SelectAction(Action):
     def action(self, battle:BattleState, inputs:tuple[UserInput,str]) -> bool:
         if self.is_valid(battle, inputs):
@@ -1317,6 +1351,7 @@ class Battle:
         return self.state.is_over()
     
     def action(self, action:str, inputs:tuple) -> bool:
+        print(f"{action} {inputs}")
         success = True
         if action in self.state.rules.get_actions():
             success = self.state.rules.get_actions()[action].action(self.state, inputs)
@@ -1326,16 +1361,21 @@ class Battle:
                 self.state.end_current_action()
         while self.state.queued_actions() > 0:
             sub_action, sub_inputs = self.state.top_action()
+            print(f"sub: {sub_action} {sub_inputs}")
             if sub_action in self.state.rules.get_actions():
-                return True
+                return success
             
             user_input_needed = False
             for sub_input in sub_inputs:
                 if isinstance(sub_input, UserInput) and not sub_input.has_value:
+                    if sub_input.switch_user():
+                        self.state.push_action(('switch_move', tuple()), ActionPriority.NOW.value)
                     self.state.push_action(('select', (sub_input,)), ActionPriority.NOW.value)
+                    if sub_input.switch_user():
+                        self.state.push_action(('switch_move', tuple()), ActionPriority.NOW.value)
                     user_input_needed = True
             if user_input_needed:
-                return success
+                continue
             
             if sub_action in self.state.rules.get_effects():
                 new_inputs = []
@@ -1375,7 +1415,6 @@ def standard_actions() -> set[Action]:
         AttackAction(),
         RetreatAction(),
         PlaceEnergyAction(),
-        SelectActiveAction(),
         SelectAction(),
         EndTurnAction(),
     ])
@@ -1387,10 +1426,10 @@ def standard_effects() -> set[Effect]:
         GetCardEffect(),
         SwitchMoveEffect(),
         EndTurnEffect(),
-        SwapActiveEffect(),
         HealEffect(),
         DamageEffect(),
         DiscardEnergyEffect(),
+        SwitchActiveEffect(),
     ])
 
 def standard_damage_effects() -> set[DamageEffect]:

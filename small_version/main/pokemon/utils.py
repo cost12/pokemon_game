@@ -75,9 +75,11 @@ class PriorityQueue[T]:
 
     def __init__(self):
         self.items = list[T]()
+        self.i = 0
 
     def push(self, priority:int, item:T) -> None:
-        heappush(self.items, (priority, len(self.items), item))
+        heappush(self.items, (priority, self.i, item))
+        self.i += 1
 
     def pop(self) -> T:
         priority, count, item = heappop(self.items)
@@ -93,3 +95,4 @@ class PriorityQueue[T]:
     
     def clear(self) -> None:
         self.items.clear()
+        self.i = 0

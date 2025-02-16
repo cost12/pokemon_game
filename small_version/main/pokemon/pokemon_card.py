@@ -8,11 +8,11 @@ class Ability:
     id_str:str
     name:str
     text:str
-    effect:tuple[str,tuple]
+    effects:tuple[tuple[str,tuple]]
     trigger:str
 
-    def get_effect(self) -> tuple[str,tuple]:
-        return self.effect
+    def get_effects(self) -> tuple[tuple[str,tuple]]:
+        return self.effects
 
 @dataclass(frozen=True)
 class Attack:
@@ -22,16 +22,16 @@ class Attack:
     energy_cost:EnergyContainer
     attack_type:PokemonType
     text:str=''
-    effect:tuple[str,tuple]=None
+    effects:tuple[tuple[str,tuple]]=None
 
     def base_damage(self) -> int:
         return self.damage_effect[1][0]
 
-    def get_damage_effect(self) -> tuple[str,tuple]|None:
+    def get_damage_effect(self) -> tuple[str,tuple]:
         return self.damage_effect
 
-    def get_effect(self) -> tuple[str,tuple]|None:
-        return self.effect
+    def get_effects(self) -> tuple[tuple[str,tuple]]|None:
+        return self.effects
 
 @dataclass(frozen=True)
 class Pokemon:
@@ -85,14 +85,13 @@ class PlayingCard:
 
 @dataclass(frozen=True)
 class Trainer(PlayingCard):
+    card_type:CardType
     name:str
     text:str
-    effect:str
-    inputs:tuple
-    card_type:CardType
+    effects:tuple[tuple[str,tuple]]
 
-    def get_action(self) -> tuple[str, tuple]:
-        return self.effect, self.inputs
+    def get_actions(self) -> tuple[tuple[str, tuple]]:
+        return self.effects
     
     def get_card_type(self) -> CardType:
         return self.card_type
@@ -117,11 +116,6 @@ class Fossil(PlayingCard):
     name:str
     hit_points:int
     text:str
-    effect:str
-    inputs:tuple
-
-    def get_action(self) -> tuple[str, tuple]:
-        return self.effect, self.inputs
     
     def card_type(self) -> CardType:
         return CardType.FOSSIL

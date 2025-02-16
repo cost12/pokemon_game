@@ -302,8 +302,8 @@ def test_battle():
     assert battle.team1_move()
     assert battle.state.team2_points == 1
     assert battle.team1_move()
-    assert list(battle.available_actions().keys()) == ['select_active']
-    assert battle.action('select_active', (1,))
+    assert list(battle.available_actions().keys()) == ['select']
+    assert battle.action('select', (*battle.get_partial_inputs(), 1))
     # Team 1 turn 7: place energy 2
     assert battle.team1_turn()
     assert battle.action('place_energy', (0,))
@@ -394,9 +394,10 @@ def test_battle_trainers():
     # Team 2 turn 3 move: select a new active
     assert battle.team1_turn()
     assert not battle.team1_move()
-    assert check_actions(battle.available_actions(), ['select_active'])
-    assert not battle.action('select_active', (0,))
-    assert battle.action('select_active', (1,))
+    assert check_actions(battle.available_actions(), ['select'])
+    assert not battle.action('select', (*battle.get_partial_inputs(), 0,))
+    print(battle.available_actions())
+    assert battle.action('select', (*battle.get_partial_inputs(), 1,))
 
     # Team 1 finish turn 3: end_turn
     assert battle.team1_turn()

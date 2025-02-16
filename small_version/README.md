@@ -7,7 +7,6 @@ Known Bugs/what to fix/implement next:
     4. game makes you select active when game is over
     5. state winner at the end
     6. sort hand/bench
-    7. proff research with no deck
 
 Stuff to do:
     0. server/client programs to allow multiplayer
@@ -25,3 +24,9 @@ Stuff to do:
 
 Test next:
     1. retreat
+
+Potential issues:
+    1. Successful attack/ability with effect that fails: return False instead of true
+    2. Effect with multiple user inputs: 
+    3. Action queues action with same name: would be removed from queue
+    4. Action with user inputs: maybe?
