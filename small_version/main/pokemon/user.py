@@ -10,7 +10,8 @@ class User:
     def __init__(self, username:str, initial_cards:dict[PlayingCard,int]|None=None):
         self.username = username
         self.cards = dict[PlayingCard,int]() if initial_cards is None else initial_cards
-        self.decks = dict[str,Deck]()
+        self.collection_decks = dict[str,Deck]()
+        self.unlimited_decks  = dict[str,Deck]()
         self.controller = BattleController()
 
     def add_card(self, card:PlayingCard) -> None:
@@ -36,13 +37,16 @@ class User:
     def number_of_cards(self) -> int:
         return sum(self.cards.values())
     
-    def number_of_decks(self) -> int:
-        return len(self.decks)
+    def collection_deck_count(self) -> int:
+        return len(self.collection_decks)
+    
+    def unlimited_deck_count(self) -> int:
+        return len(self.unlimited_decks)
     
     def number_of_copies(self, card:PlayingCard) -> int:
         return self.cards[card] if card in self.cards else 0
 
-    def add_deck(self, deck:Deck) -> bool:
+    def add_collection_deck(self, deck:Deck) -> bool:
         """Checks whether a deck can be created with the user's cards. Returns true and adds the deck if it can be made, returns false otherwise
 
         :param deck: A deck of cards to add
@@ -54,5 +58,13 @@ class User:
         for card, count in counts.items():
             if count > self.number_of_copies(card):
                 return False
-        self.decks[deck.name] = deck
+        self.collection_decks[deck.name] = deck
         return True
+    
+    def add_unlimited_deck(self, deck:Deck) -> None:
+        """Adds a deck to the User's collection of decks
+
+        :param deck: The deck to add
+        :type deck: Deck
+        """
+        self.unlimited_decks[deck.name] = deck

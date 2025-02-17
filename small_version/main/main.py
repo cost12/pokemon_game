@@ -73,8 +73,8 @@ def main():
     card_dict2 = utils.tuple_to_counts(cards)
     user1 = User('p1', card_dict1)
     user2 = User('p2', card_dict2)
-    ready1 = user1.add_deck(deck1)
-    ready2 = user2.add_deck(deck2)
+    ready1 = user1.add_collection_deck(deck1)
+    ready2 = user2.add_collection_deck(deck2)
     assert ready1 and ready2
 
     # start the battle
