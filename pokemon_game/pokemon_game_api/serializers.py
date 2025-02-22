@@ -27,9 +27,15 @@ class EnergyTypeSerializer(ModelSerializer):
         fields = '__all__'
 
 class PokemonSerializer(ModelSerializer):
+
     class Meta:
         model = Pokemon
-        fields = '__all__'
+        fields = ['name', 'default_types', 'evolves_from']
+
+    def get_fields(self):
+        fields = super(PokemonSerializer, self).get_fields()
+        fields['evolves_from'] = PokemonSerializer(many=True)
+        return fields
 
 class EffectSerializer(ModelSerializer):
     class Meta:
