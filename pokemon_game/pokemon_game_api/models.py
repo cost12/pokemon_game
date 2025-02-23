@@ -1,50 +1,50 @@
 from django.db import models
 
 CARD_TYPES = {
-    'P': 'POKEMON',
-    'S': 'SUPPORTER',
-    'I': 'ITEM',
-    'T': 'TOOL',
-    'F': 'FOSSIL',
+    '0': 'POKEMON',
+    '1': 'SUPPORTER',
+    '2': 'ITEM',
+    '3': 'TOOL',
+    '4': 'FOSSIL',
 }
 
 ENERGY_TYPES = {
-    'C':  'COLORLESS',
-    'FR': 'FIRE',
-    'W':  'WATER',
-    'L':  'LIGHTNING',
-    'G':  'GRASS',
-    'FG': 'FIGHTING',
-    'P':  'PSYCHIC',
-    'DA': 'DARKNESS',
-    'M':  'METAL',
-    'DR': 'DRAGON',
-    'FA': 'FAIRY',
+    '0':  'COLORLESS',
+    '1': 'FIRE',
+    '2':  'WATER',
+    '3':  'LIGHTNING',
+    '4':  'GRASS',
+    '5': 'FIGHTING',
+    '6':  'PSYCHIC',
+    '7': 'DARKNESS',
+    '8':  'METAL',
+    '9': 'DRAGON',
+    '10': 'FAIRY',
 }
 
 POKEMON_TYPES = {
-    'N':  'NORMAL',
-    'FR': 'FIRE',
-    'W':  'WATER',
-    'E':  'ELECTRIC',
-    'GA': 'GRASS',
-    'FG': 'FIGHTING',
-    'PS': 'PSYCHIC',
-    'DA': 'DARK',
-    'S':  'STEEL',
-    'DR': 'DRAGON',
-    'FA': 'FAIRY',
-    'I':  'ICE',
-    'GO': 'GROUND',
-    'FL': 'FLYING',
-    'PO': 'POISON',
-    'B':  'BUG',
-    'R':  'ROCK',
-    'GH': 'GHOST',
+    '0':  'NORMAL',
+    '1': 'FIRE',
+    '2':  'WATER',
+    '3':  'ELECTRIC',
+    '4': 'GRASS',
+    '5': 'FIGHTING',
+    '6': 'PSYCHIC',
+    '7': 'DARK',
+    '8':  'STEEL',
+    '9': 'DRAGON',
+    '10': 'FAIRY',
+    '11':  'ICE',
+    '12': 'GROUND',
+    '13': 'FLYING',
+    '14': 'POISON',
+    '15':  'BUG',
+    '16':  'ROCK',
+    '17': 'GHOST',
 }
 
 class CardType(models.Model):
-    card_type = models.CharField(max_length=2, choices=CARD_TYPES)
+    card_type = models.CharField(max_length=2, choices=CARD_TYPES, unique=True)
 
 class Condition(models.Model):
     name = models.CharField(unique=True)

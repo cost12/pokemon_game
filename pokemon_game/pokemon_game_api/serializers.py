@@ -1,4 +1,4 @@
-from rest_framework.serializers import ModelSerializer
+from rest_framework.serializers import ModelSerializer, CharField
 from .models import Pokemon, Attack, Ability, PokemonCard, Trainer, Effect, CardType, Condition, EnergyCost, EnergyType, PokemonType
 
 class CardTypeSerializer(ModelSerializer):
@@ -22,9 +22,11 @@ class PokemonTypeSerializer(ModelSerializer):
         fields = '__all__'
 
 class EnergyTypeSerializer(ModelSerializer):
+    name = CharField(source='get_name_display')
+
     class Meta:
         model = EnergyType
-        fields = '__all__'
+        fields = ['name']
 
 class PokemonSerializer(ModelSerializer):
 
