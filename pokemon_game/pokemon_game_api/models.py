@@ -1,60 +1,17 @@
 from django.db import models
 
-CARD_TYPES = {
-    '0': 'POKEMON',
-    '1': 'SUPPORTER',
-    '2': 'ITEM',
-    '3': 'TOOL',
-    '4': 'FOSSIL',
-}
-
-ENERGY_TYPES = {
-    '0':  'COLORLESS',
-    '1': 'FIRE',
-    '2':  'WATER',
-    '3':  'LIGHTNING',
-    '4':  'GRASS',
-    '5': 'FIGHTING',
-    '6':  'PSYCHIC',
-    '7': 'DARKNESS',
-    '8':  'METAL',
-    '9': 'DRAGON',
-    '10': 'FAIRY',
-}
-
-POKEMON_TYPES = {
-    '0':  'NORMAL',
-    '1': 'FIRE',
-    '2':  'WATER',
-    '3':  'ELECTRIC',
-    '4': 'GRASS',
-    '5': 'FIGHTING',
-    '6': 'PSYCHIC',
-    '7': 'DARK',
-    '8':  'STEEL',
-    '9': 'DRAGON',
-    '10': 'FAIRY',
-    '11':  'ICE',
-    '12': 'GROUND',
-    '13': 'FLYING',
-    '14': 'POISON',
-    '15':  'BUG',
-    '16':  'ROCK',
-    '17': 'GHOST',
-}
-
 class CardType(models.Model):
-    card_type = models.CharField(max_length=2, choices=CARD_TYPES, unique=True)
+    card_type = models.CharField(unique=True)
 
 class Condition(models.Model):
     name = models.CharField(unique=True)
     effect = models.CharField()
 
 class EnergyType(models.Model):
-    name = models.CharField(unique=True, max_length=2, choices=ENERGY_TYPES)
+    name = models.CharField(unique=True)
 
 class PokemonType(models.Model):
-    name               = models.CharField(unique=True, max_length=2, choices=POKEMON_TYPES)
+    name               = models.CharField(unique=True)
     energy_type        = models.ForeignKey(EnergyType, on_delete=models.CASCADE)
     default_weakness   = models.ForeignKey(EnergyType, on_delete=models.SET_NULL, null=True, blank=True, related_name='default_weakness')
     default_resistance = models.ForeignKey(EnergyType, on_delete=models.SET_NULL, null=True, blank=True, related_name='default_resistance')

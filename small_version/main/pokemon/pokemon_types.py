@@ -73,9 +73,9 @@ def weakness(pokemon_type:PokemonType) -> EnergyType|None:
         case PokemonType.PSYCHIC | PokemonType.GHOST:
             return EnergyType.DARKNESS
         case PokemonType.FAIRY:
-            return PokemonType.STEEL
+            return EnergyType.METAL
         case PokemonType.GROUND | PokemonType.ROCK:
-            return PokemonType.GRASS
+            return EnergyType.GRASS
         
 def resistance(pokemon_type:PokemonType) -> EnergyType|None:
     match pokemon_type:

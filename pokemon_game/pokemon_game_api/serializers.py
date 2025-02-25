@@ -16,17 +16,24 @@ class EnergyCostSerializer(ModelSerializer):
         model = EnergyCost
         fields = '__all__'
 
-class PokemonTypeSerializer(ModelSerializer):
-    class Meta:
-        model = PokemonType
-        fields = '__all__'
-
 class EnergyTypeSerializer(ModelSerializer):
-    name = CharField(source='get_name_display')
-
     class Meta:
         model = EnergyType
         fields = ['name']
+
+class PokemonTypePkSerializer(ModelSerializer):
+    class Meta:
+        model = PokemonType
+        fields = ['name', 'energy_type', 'default_weakness', 'default_resistance']
+
+class PokemonTypeSerializer(ModelSerializer):
+    energy_type = EnergyTypeSerializer()
+    default_weakness = EnergyTypeSerializer()
+    default_resistance = EnergyTypeSerializer()
+
+    class Meta:
+        model = PokemonType
+        fields = ['name', 'energy_type', 'default_weakness', 'default_resistance']
 
 class PokemonSerializer(ModelSerializer):
 
